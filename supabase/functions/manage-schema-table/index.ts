@@ -125,10 +125,15 @@ serve(async (req) => {
         ddl_statement: createTableSQL 
       });
 
-        if (error || !data.success) {
-          console.error('Error creating table:', error || data.error);
-          throw new Error(`Failed to create table: ${data.error || (error ? error.message : 'Unknown error')}`);
-        }
+      if (error) {
+        console.error('Error creating table:', error);
+        throw new Error(`Failed to create table: ${error.message}`);
+      }
+
+      if (data && typeof data === 'object' && 'success' in data && !data.success) {
+        console.error('Error creating table:', data.error);
+        throw new Error(`Failed to create table: ${data.error || 'Unknown error'}`);
+      }
 
       console.log(`Successfully created table: ${finalTableName}`);
 
@@ -188,9 +193,14 @@ serve(async (req) => {
           ddl_statement: alterSQL 
         });
 
-        if (error || !data.success) {
-          console.error('Error updating table:', error || data.error);
-          throw new Error(`Failed to update table: ${data.error || (error ? error.message : 'Unknown error')}`);
+        if (error) {
+          console.error('Error updating table:', error);
+          throw new Error(`Failed to update table: ${error.message}`);
+        }
+
+        if (data && typeof data === 'object' && 'success' in data && !data.success) {
+          console.error('Error updating table:', data.error);
+          throw new Error(`Failed to update table: ${data.error || 'Unknown error'}`);
         }
 
         console.log(`Successfully updated table: ${finalTableName}`);
@@ -215,9 +225,14 @@ serve(async (req) => {
         ddl_statement: dropTableSQL 
       });
 
-      if (error || !data.success) {
-        console.error('Error dropping table:', error || data.error);
-        throw new Error(`Failed to drop table: ${data.error || (error ? error.message : 'Unknown error')}`);
+      if (error) {
+        console.error('Error dropping table:', error);
+        throw new Error(`Failed to drop table: ${error.message}`);
+      }
+
+      if (data && typeof data === 'object' && 'success' in data && !data.success) {
+        console.error('Error dropping table:', data.error);
+        throw new Error(`Failed to drop table: ${data.error || 'Unknown error'}`);
       }
 
       console.log(`Successfully dropped table: ${finalTableName}`);
