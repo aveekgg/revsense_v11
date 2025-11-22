@@ -3,6 +3,11 @@
 -- Run this SQL in your Supabase SQL Editor to fix the issue
 -- ========================================================
 
+-- Drop existing functions first (if they exist)
+DROP FUNCTION IF EXISTS public.sanitize_table_name(TEXT);
+DROP FUNCTION IF EXISTS public.get_table_columns(TEXT);
+DROP FUNCTION IF EXISTS public.execute_ddl(TEXT);
+
 -- 1. Function to sanitize table names
 CREATE OR REPLACE FUNCTION public.sanitize_table_name(input_name TEXT)
 RETURNS TEXT
