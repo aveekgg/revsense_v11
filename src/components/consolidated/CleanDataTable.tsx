@@ -108,7 +108,7 @@ export function CleanDataTable({
       const rows = records.map((r: any) => [
         r.source_workbook || '',
         formatTimestamp(r.extracted_at),
-        ...schema.fields.map(f => formatValue(r[f.name], f.name, f.type))
+        ...schema.fields.map(f => formatValue(r[f.name], f.name, f.type, r.reporting_currency))
       ]);
       data = [headers.join(','), ...rows.map(row => row.map(cell => `"${cell}"`).join(','))].join('\n');
     }
@@ -225,7 +225,7 @@ export function CleanDataTable({
                       <TableCell className="text-sm">{formatTimestamp(record.extracted_at)}</TableCell>
                       {schema.fields.map(field => (
                         <TableCell key={field.id} className="text-sm">
-                          {formatValue(record[field.name], field.name, field.type)}
+                          {formatValue(record[field.name], field.name, field.type, record.reporting_currency)}
                         </TableCell>
                       ))}
                       <TableCell className="text-center">
