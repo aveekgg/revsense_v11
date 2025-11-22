@@ -34,6 +34,10 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== manage-schema-table Edge Function Started ===');
+    console.log('Request method:', req.method);
+    console.log('Request headers:', Object.fromEntries(req.headers.entries()));
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -44,22 +48,59 @@ serve(async (req) => {
       }
     );
 
+    console.log('Supabase client created');
+    console.log('Environment vars check:', {
+      hasSupabaseUrl: !!Deno.env.get('SUPABASE_URL'),
+      hasSupabaseKey: !!Deno.env.get('SUPABASE_ANON_KEY'),
+      hasAuth: !!req.headers.get('Authorization')
+    });
+
     // Verify authentication
+    console.log('Checking authentication...');
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    
+    console.log('Auth result:', { 
+      hasUser: !!user, 
+      userId: user?.id, 
+      authError: authError?.message 
+    });
+    
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      console.error('Authentication failed:', authError);
+      return new Response(JSON.stringify({ error: 'Unauthorized', details: authError?.message }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const { operation, schemaId, schemaName, fields, tableName } = await req.json();
+    console.log('Parsing request body...');
+    const body = await req.json();
+    console.log('Request body received:', body);
+    
+    const { operation, schemaId, schemaName, fields, tableName } = body;
+
+    console.log('Parsed request:', { operation, schemaId, schemaName, fieldsCount: fields?.length, tableName });
+
+    if (!operation) {
+      throw new Error('Missing operation parameter');
+    }
+    
+    if (!schemaName && !tableName) {
+      throw new Error('Missing schemaName or tableName parameter');
+    }
+    
+    if (!fields || !Array.isArray(fields)) {
+      throw new Error(`Invalid fields parameter: ${typeof fields}, length: ${fields?.length}`);
+    }
 
     console.log(`Managing schema table - Operation: ${operation}, Schema: ${schemaName || schemaId}`);
 
     // Sanitize table name
+    console.log('Calling sanitize_table_name...');
     const { data: sanitizedName, error: sanitizeError } = await supabaseClient
-      .rpc('sanitize_table_name', { name: tableName || schemaName });
+      .rpc('sanitize_table_name', { p_name: tableName || schemaName });
+
+    console.log('Sanitize result:', { sanitizedName, sanitizeError });
 
     if (sanitizeError) {
       console.error('Error sanitizing table name:', sanitizeError);
@@ -67,6 +108,7 @@ serve(async (req) => {
     }
 
     const finalTableName = `clean_${sanitizedName}`;
+    console.log('Final table name:', finalTableName);
 
     if (operation === 'create') {
       // Build CREATE TABLE statement
@@ -122,7 +164,7 @@ serve(async (req) => {
       `;
 
       const { data, error } = await supabaseClient.rpc('execute_ddl', { 
-        ddl_statement: createTableSQL 
+        p_ddl_statement: createTableSQL 
       });
 
       if (error) {
@@ -148,7 +190,7 @@ serve(async (req) => {
     } else if (operation === 'update') {
       // Get current table columns
       const { data: currentColumns, error: columnsError } = await supabaseClient
-        .rpc('get_table_columns', { table_name: finalTableName });
+        .rpc('get_table_columns', { p_table_name: finalTableName });
 
       if (columnsError) {
         console.error('Error fetching current columns:', columnsError);
@@ -190,7 +232,7 @@ serve(async (req) => {
       if (alterStatements.length > 0) {
         const alterSQL = alterStatements.join('\n');
         const { data, error } = await supabaseClient.rpc('execute_ddl', { 
-          ddl_statement: alterSQL 
+          p_ddl_statement: alterSQL 
         });
 
         if (error) {
@@ -222,7 +264,7 @@ serve(async (req) => {
       const dropTableSQL = `DROP TABLE IF EXISTS public.${finalTableName} CASCADE;`;
 
       const { data, error } = await supabaseClient.rpc('execute_ddl', { 
-        ddl_statement: dropTableSQL 
+        p_ddl_statement: dropTableSQL 
       });
 
       if (error) {
@@ -254,8 +296,20 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in manage-schema-table:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : '';
+    
+    console.error('Full error details:', {
+      message: errorMessage,
+      stack: errorStack,
+      error: error
+    });
+    
     return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      error: errorMessage,
+      details: errorStack,
+      timestamp: new Date().toISOString()
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

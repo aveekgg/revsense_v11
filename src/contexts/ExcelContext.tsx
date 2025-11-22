@@ -399,18 +399,54 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     console.log('Found schema:', { name: schema.name, fields: schema.fields });
 
+    // Map SchemaField to the format expected by edge function
+    const fieldsForEdgeFunction = schema.fields.map(f => ({
+      name: f.name,
+      type: f.type,
+      required: f.required
+    }));
+
     // Ensure the underlying clean_* table is in sync with the latest schema definition
-    console.log('Syncing schema table...');
+    console.log('Syncing schema table...', { schemaName: schema.name, fields: fieldsForEdgeFunction });
     const { data: tableResult, error: tableError } = await supabase.functions.invoke('manage-schema-table', {
       body: {
         operation: 'update',
         schemaId: schema.id,
         schemaName: schema.name,
-        fields: schema.fields,
+        fields: fieldsForEdgeFunction,
       },
     });
 
     console.log('Schema table sync result:', { tableResult, tableError });
+    
+    // Log full error details for debugging
+    if (tableError) {
+      console.error('Edge function error details:', {
+        name: tableError.name,
+        message: tableError.message,
+        context: tableError.context,
+        stack: tableError.stack
+      });
+      
+      // Try to extract the actual error response body
+      if (tableError.context && tableError.context.body) {
+        try {
+          const reader = tableError.context.body.getReader();
+          const { value } = await reader.read();
+          const errorText = new TextDecoder().decode(value);
+          console.error('Edge function response body:', errorText);
+          
+          try {
+            const errorJson = JSON.parse(errorText);
+            console.error('Parsed edge function error:', errorJson);
+          } catch (parseError) {
+            console.error('Could not parse error JSON, raw text:', errorText);
+          }
+        } catch (readError) {
+          console.error('Could not read response body:', readError);
+        }
+      }
+    }
 
     if (tableError || !tableResult?.success) {
       const errorMsg = tableResult?.error || tableError?.message || 'Failed to sync schema table';

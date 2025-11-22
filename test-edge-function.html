@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Edge Function</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Test manage-schema-table Edge Function</h1>
+    <button onclick="testEdgeFunction()">Test Edge Function</button>
+    <pre id="results"></pre>
+
+    <script>
+        // Replace with your actual Supabase credentials
+        const supabaseUrl = 'https://djskqegnpplmnyrzomri.supabase.co'
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqc2txZWducHBsbW55cnpvbXJpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzE2NTgzNzEsImV4cCI6MjA0NzIzNDM3MX0.htnU-QrGx_xjTaJrlrJGqAKy9qrNNFyJ0Yk1ORLmFZ0'
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey)
+
+        async function testEdgeFunction() {
+            const results = document.getElementById('results');
+            results.textContent = 'Testing...';
+
+            try {
+                console.log('Testing edge function...');
+                
+                const response = await supabase.functions.invoke('manage-schema-table', {
+                    body: {
+                        operation: 'update',
+                        schemaName: 'Test Schema',
+                        fields: [
+                            {
+                                name: 'test_field',
+                                type: 'text',
+                                required: true
+                            }
+                        ]
+                    }
+                });
+
+                console.log('Response:', response);
+                
+                results.textContent = JSON.stringify({
+                    data: response.data,
+                    error: response.error,
+                    errorDetails: response.error ? {
+                        name: response.error.name,
+                        message: response.error.message,
+                        stack: response.error.stack
+                    } : null
+                }, null, 2);
+
+            } catch (error) {
+                console.error('Test failed:', error);
+                results.textContent = `Test failed: ${error.message}\n\nFull error: ${JSON.stringify(error, null, 2)}`;
+            }
+        }
+
+        // Auto-run test when page loads
+        window.onload = testEdgeFunction;
+    </script>
+</body>
+</html>

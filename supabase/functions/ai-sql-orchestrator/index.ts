@@ -99,7 +99,7 @@ serve(async (req) => {
     // Fetch table info (same as before)
     const tablesInfo = await Promise.all((schemas || []).map(async (schema: any) => {
       const { data: sanitizedName, error: sanitizeError } = await supabaseClient
-        .rpc('sanitize_table_name', { name: schema.name });
+        .rpc('sanitize_table_name', { p_name: schema.name });
 
       if (sanitizeError) {
         console.error(`❌ Could not sanitize table name for schema "${schema.name}":`, sanitizeError);
@@ -111,7 +111,7 @@ serve(async (req) => {
 
       try {
         const { data: columns, error: colsError } = await supabaseClient
-          .rpc('get_table_columns', { table_name: tableName });
+          .rpc('get_table_columns', { p_table_name: tableName });
 
         if (colsError) {
           console.error(`❌ Could not fetch columns for ${tableName}:`, colsError);
@@ -411,7 +411,7 @@ Return JSON only:
 
     // Step 3: Execute SQL (results will already be canonical rows)
     const { data, error: queryError } = await supabaseClient
-      .rpc('execute_safe_query', { query_text: sanitizedSql });
+      .rpc('execute_safe_query', { p_query_text: sanitizedSql });
 
     if (queryError) {
       throw new Error(`SQL execution failed: ${queryError.message}`);
