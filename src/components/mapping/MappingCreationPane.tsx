@@ -41,9 +41,34 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
       setDescription(existingMapping.description || '');
       setTagsInput(existingMapping.tags.join(', '));
       setSelectedSchemaId(existingMapping.schemaId);
-      setFieldMappings(existingMapping.fieldMappings);
+      
+      // Get the schema for this mapping
+      const schema = schemas.find(s => s.id === existingMapping.schemaId);
+      if (schema) {
+        // Create a Set of existing field IDs in the mapping
+        const existingFieldIds = new Set(
+          existingMapping.fieldMappings.map(fm => fm.schemaFieldId)
+        );
+        
+        // Find fields in the schema that don't have mappings
+        const missingFieldMappings = schema.fields
+          .filter(field => !existingFieldIds.has(field.id))
+          .map(field => ({
+            schemaFieldId: field.id,
+            formula: '',
+            cellReferences: [],
+            isValid: false,
+            error: undefined,
+          }));
+        
+        // Merge existing mappings with new empty mappings for added fields
+        setFieldMappings([...existingMapping.fieldMappings, ...missingFieldMappings]);
+      } else {
+        // Fallback if schema not found
+        setFieldMappings(existingMapping.fieldMappings);
+      }
     }
-  }, [existingMapping]);
+  }, [existingMapping, schemas]);
 
   // Load template mapping data for cloning
   useEffect(() => {
@@ -52,9 +77,34 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
       setDescription(templateMapping.description || '');
       setTagsInput(templateMapping.tags.join(', '));
       setSelectedSchemaId(templateMapping.schemaId);
-      setFieldMappings(templateMapping.fieldMappings);
+      
+      // Get the schema for this template
+      const schema = schemas.find(s => s.id === templateMapping.schemaId);
+      if (schema) {
+        // Create a Set of existing field IDs in the template
+        const existingFieldIds = new Set(
+          templateMapping.fieldMappings.map(fm => fm.schemaFieldId)
+        );
+        
+        // Find fields in the schema that don't have mappings
+        const missingFieldMappings = schema.fields
+          .filter(field => !existingFieldIds.has(field.id))
+          .map(field => ({
+            schemaFieldId: field.id,
+            formula: '',
+            cellReferences: [],
+            isValid: false,
+            error: undefined,
+          }));
+        
+        // Merge template mappings with new empty mappings for added fields
+        setFieldMappings([...templateMapping.fieldMappings, ...missingFieldMappings]);
+      } else {
+        // Fallback if schema not found
+        setFieldMappings(templateMapping.fieldMappings);
+      }
     }
-  }, [templateMapping]);
+  }, [templateMapping, schemas]);
 
   useEffect(() => {
     if (selectedSchema && !isEditMode && !isTemplateMode) {
