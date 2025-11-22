@@ -1,0 +1,19 @@
+project_id = "djskqegnpplmnyrzomri"
+
+[functions.ai-sql-orchestrator]
+verify_jwt = true
+
+[functions.manage-schema-table]
+verify_jwt = true
+
+[functions.insert-clean-data]
+verify_jwt = true
+
+[functions.migrate-business-context]
+verify_jwt = true
+
+[functions.generate-session-title]
+verify_jwt = true
+
+[functions.ai-chart-generator]
+verify_jwt = true

@@ -1,0 +1,51 @@
+Order ID,Order Date,Customer Name,Customer Email,Customer State,Product Name,Product Category,Quantity (lbs),Unit Price,Total Amount,Order Type,Order Status
+ORD-1001,2025-01-05,Sarah Johnson,sarah.j@email.com,CA,Dark Roast Blend,Dark Roast,2,18,36,One-time,Delivered
+ORD-1002,2025-01-05,Michael Chen,mchen@email.com,NY,Medium Roast Blend,Medium Roast,3,16,48,Subscription,Delivered
+ORD-1003,2025-01-06,Emily Williams,emily.w@email.com,TX,Espresso Blend,Espresso,1,20,20,One-time,Delivered
+ORD-1004,2025-01-06,James Rodriguez,james.r@email.com,FL,Holiday Gift Box,Gift Sets,1,45,45,One-time,Delivered
+ORD-1005,2025-01-07,Lisa Anderson,lisa.a@email.com,WA,Medium Roast Blend,Medium Roast,4,16,64,Subscription,Delivered
+ORD-1006,2025-01-08,David Thompson,david.t@email.com,IL,Dark Roast Blend,Dark Roast,2,18,36,One-time,Shipped
+ORD-1007,2025-01-08,Maria Garcia,maria.g@email.com,CA,Decaf Blend,Decaf,2,17,34,Subscription,Delivered
+ORD-1008,2025-01-09,Robert Martinez,robert.m@email.com,PA,Espresso Blend,Espresso,5,20,100,Subscription,Delivered
+ORD-1009,2025-01-10,Jennifer Taylor,jennifer.t@email.com,OH,Medium Roast Blend,Medium Roast,2,16,32,One-time,Delivered
+ORD-1010,2025-01-11,William Lee,william.l@email.com,NC,Dark Roast Blend,Dark Roast,3,18,54,Subscription,Delivered
+ORD-1011,2025-01-12,Jessica Brown,jessica.b@email.com,GA,Holiday Gift Box,Gift Sets,2,45,90,One-time,Cancelled
+ORD-1012,2025-01-13,Christopher White,chris.w@email.com,CA,Medium Roast Blend,Medium Roast,6,16,96,Subscription,Delivered
+ORD-1013,2025-01-14,Amanda Harris,amanda.h@email.com,NY,Espresso Blend,Espresso,2,20,40,One-time,Delivered
+ORD-1014,2025-01-15,Matthew Clark,matt.c@email.com,TX,Decaf Blend,Decaf,3,17,51,Subscription,Delivered
+ORD-1015,2025-01-16,Ashley Lewis,ashley.l@email.com,FL,Dark Roast Blend,Dark Roast,2,18,36,One-time,Delivered
+ORD-1016,2025-01-17,Daniel Walker,daniel.w@email.com,WA,Medium Roast Blend,Medium Roast,4,16,64,Subscription,Pending
+ORD-1017,2025-01-18,Stephanie Hall,steph.h@email.com,IL,Espresso Blend,Espresso,1,20,20,One-time,Shipped
+ORD-1018,2025-01-19,Joshua Young,joshua.y@email.com,CA,Holiday Gift Box,Gift Sets,1,45,45,One-time,Delivered
+ORD-1019,2025-01-20,Nicole King,nicole.k@email.com,PA,Medium Roast Blend,Medium Roast,5,16,80,Subscription,Delivered
+ORD-1020,2025-01-21,Ryan Wright,ryan.w@email.com,OH,Dark Roast Blend,Dark Roast,2,18,36,One-time,Delivered
+ORD-1021,2025-01-22,Rebecca Lopez,rebecca.l@email.com,NC,Decaf Blend,Decaf,2,17,34,Subscription,Delivered
+ORD-1022,2025-01-23,Kevin Hill,kevin.h@email.com,GA,Espresso Blend,Espresso,3,20,60,Subscription,Delivered
+ORD-1023,2025-01-24,Lauren Scott,lauren.s@email.com,CA,Medium Roast Blend,Medium Roast,2,16,32,One-time,Cancelled
+ORD-1024,2025-01-25,Brandon Green,brandon.g@email.com,NY,Dark Roast Blend,Dark Roast,4,18,72,Subscription,Delivered
+ORD-1025,2025-01-26,Melissa Adams,melissa.a@email.com,TX,Holiday Gift Box,Gift Sets,1,45,45,One-time,Delivered
+ORD-1026,2025-01-27,Jason Baker,jason.b@email.com,FL,Medium Roast Blend,Medium Roast,3,16,48,One-time,Shipped
+ORD-1027,2025-01-28,Samantha Nelson,sam.n@email.com,WA,Espresso Blend,Espresso,2,20,40,Subscription,Delivered
+ORD-1028,2025-01-29,Justin Carter,justin.c@email.com,IL,Decaf Blend,Decaf,2,17,34,One-time,Delivered
+ORD-1029,2025-01-30,Rachel Mitchell,rachel.m@email.com,CA,Dark Roast Blend,Dark Roast,5,18,90,Subscription,Delivered
+ORD-1030,2025-01-31,Tyler Perez,tyler.p@email.com,PA,Medium Roast Blend,Medium Roast,2,16,32,One-time,Delivered
+ORD-1031,2025-02-01,Hannah Roberts,hannah.r@email.com,OH,Espresso Blend,Espresso,4,20,80,Subscription,Pending
+ORD-1032,2025-02-02,Andrew Turner,andrew.t@email.com,NC,Holiday Gift Box,Gift Sets,2,45,90,One-time,Delivered
+ORD-1033,2025-02-03,Brittany Phillips,brit.p@email.com,GA,Medium Roast Blend,Medium Roast,3,16,48,Subscription,Delivered
+ORD-1034,2025-02-04,Jonathan Campbell,jon.c@email.com,CA,Dark Roast Blend,Dark Roast,2,18,36,One-time,Shipped
+ORD-1035,2025-02-05,Megan Parker,megan.p@email.com,NY,Decaf Blend,Decaf,3,17,51,Subscription,Delivered
+ORD-1036,2025-02-06,Nicholas Evans,nick.e@email.com,TX,Espresso Blend,Espresso,2,20,40,One-time,Delivered
+ORD-1037,2025-02-07,Kimberly Edwards,kim.e@email.com,FL,Medium Roast Blend,Medium Roast,6,16,96,Subscription,Delivered
+ORD-1038,2025-02-08,Eric Collins,eric.c@email.com,WA,Dark Roast Blend,Dark Roast,2,18,36,One-time,Delivered
+ORD-1039,2025-02-09,Heather Stewart,heather.s@email.com,IL,Holiday Gift Box,Gift Sets,1,45,45,One-time,Pending
+ORD-1040,2025-02-10,Jacob Sanchez,jacob.s@email.com,CA,Medium Roast Blend,Medium Roast,4,16,64,Subscription,Delivered
+ORD-1041,2025-02-11,Taylor Morris,taylor.m@email.com,PA,Espresso Blend,Espresso,3,20,60,One-time,Delivered
+ORD-1042,2025-02-12,Austin Rogers,austin.r@email.com,OH,Decaf Blend,Decaf,2,17,34,Subscription,Delivered
+ORD-1043,2025-02-13,Victoria Reed,victoria.r@email.com,NC,Dark Roast Blend,Dark Roast,5,18,90,Subscription,Delivered
+ORD-1044,2025-02-14,Jordan Cook,jordan.c@email.com,GA,Medium Roast Blend,Medium Roast,2,16,32,One-time,Cancelled
+ORD-1045,2025-02-15,Alexis Morgan,alexis.m@email.com,CA,Espresso Blend,Espresso,2,20,40,Subscription,Shipped
+ORD-1046,2025-02-16,Zachary Bell,zach.b@email.com,NY,Holiday Gift Box,Gift Sets,3,45,135,One-time,Delivered
+ORD-1047,2025-02-17,Kayla Murphy,kayla.m@email.com,TX,Medium Roast Blend,Medium Roast,4,16,64,Subscription,Delivered
+ORD-1048,2025-02-18,Connor Bailey,connor.b@email.com,FL,Dark Roast Blend,Dark Roast,2,18,36,One-time,Pending
+ORD-1049,2025-02-19,Natalie Rivera,natalie.r@email.com,WA,Decaf Blend,Decaf,3,17,51,Subscription,Delivered
+ORD-1050,2025-02-20,Dylan Cooper,dylan.c@email.com,IL,Espresso Blend,Espresso,6,20,120,Subscription,Delivered

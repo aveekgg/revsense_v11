@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 210 17% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 221 55% 50%;
+    --primary-foreground: 0 0% 100%;
+    
+    --primary-glow: 221 50% 58%;
+    --primary-deep: 221 60% 40%;
+
+    --secondary: 262 50% 55%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 210 17% 95%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 262 50% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 55% 50%;
+
+    --radius: 0.75rem;
+
+    /* Analytics Platform Specific */
+    --nav-bg: 222 47% 11%;
+    --nav-fg: 0 0% 100%;
+    --nav-hover: 221 55% 50%;
+    
+    --chat-bg: 0 0% 100%;
+    --chat-border: 214 32% 91%;
+    
+    --gradient-primary: linear-gradient(135deg, hsl(221 55% 50%), hsl(262 50% 55%));
+    --gradient-hero: linear-gradient(135deg, hsl(221 55% 50% / 0.95), hsl(262 50% 55% / 0.95));
+    
+    --shadow-soft: 0 1px 3px 0 hsl(222 47% 11% / 0.1), 0 1px 2px -1px hsl(222 47% 11% / 0.1);
+    --shadow-md: 0 4px 6px -1px hsl(222 47% 11% / 0.1), 0 2px 4px -2px hsl(222 47% 11% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(222 47% 11% / 0.1), 0 4px 6px -4px hsl(222 47% 11% / 0.1);
+    
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Chart Colors - Professional palette for data visualization */
+    --chart-1: 221 55% 50%;  /* Primary Blue - Main metric */
+    --chart-2: 262 50% 55%;  /* Secondary Purple - Secondary metric */
+    --chart-3: 173 45% 42%;  /* Teal - Tertiary data */
+    --chart-4: 43 60% 52%;   /* Amber - Highlights/warnings */
+    --chart-5: 346 60% 52%;  /* Rose - Alerts/important */
+
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 221 55% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 221 55% 50%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 222 47% 18%;
+    --sidebar-ring: 221 55% 50%;
+  }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 15%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 15%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 221 55% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 262 50% 55%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 262 50% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 221 55% 50%;
+    
+    /* Chart Colors - Dark theme (slightly lighter for contrast) */
+    --chart-1: 221 55% 60%;  /* Lighter Blue */
+    --chart-2: 262 50% 62%;  /* Lighter Purple */
+    --chart-3: 173 45% 50%;  /* Lighter Teal */
+    --chart-4: 43 60% 58%;   /* Lighter Amber */
+    --chart-5: 346 60% 58%;  /* Lighter Rose */
+    
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 221 55% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 221 55% 50%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 222 47% 15%;
+    --sidebar-ring: 221 55% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .text-compact {
+    @apply leading-tight tracking-tight;
+  }
+  
+  .ui-dense {
+    @apply py-1.5 px-3 text-sm;
+  }
+}
