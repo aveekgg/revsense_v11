@@ -388,10 +388,24 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     workbookName: string,
     mappingId: string
   ) => {
-    // Get schema to determine table name
+    // Get schema to determine table name and fields
     const schema = schemas.find(s => s.id === schemaId);
     if (!schema) {
       throw new Error(`Schema not found: ${schemaId}`);
+    }
+
+    // Ensure the underlying clean_* table is in sync with the latest schema definition
+    const { data: tableResult, error: tableError } = await supabase.functions.invoke('manage-schema-table', {
+      body: {
+        operation: 'update',
+        schemaId: schema.id,
+        schemaName: schema.name,
+        fields: schema.fields,
+      },
+    });
+
+    if (tableError || !tableResult?.success) {
+      throw new Error(tableResult?.error || tableError?.message || 'Failed to sync schema table');
     }
 
     // Sanitize the table name by removing special characters
