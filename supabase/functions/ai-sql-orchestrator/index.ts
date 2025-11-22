@@ -111,7 +111,7 @@ serve(async (req) => {
 
       try {
         const { data: columns, error: colsError } = await supabaseClient
-          .rpc('get_table_columns', { p_table_name: tableName });
+          .rpc('get_table_columns', { table_name: tableName });
 
         if (colsError) {
           console.error(`❌ Could not fetch columns for ${tableName}:`, colsError);
