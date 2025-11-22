@@ -10,7 +10,7 @@ GRANT EXECUTE ON FUNCTION public.execute_safe_query(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.execute_ddl(TEXT) TO authenticated;
 
 -- 2. Fix any search_path issues with the functions
-CREATE OR REPLACE FUNCTION public.get_table_columns(p_table_name TEXT)
+CREATE OR REPLACE FUNCTION public.get_table_columns(table_name TEXT)
 RETURNS TABLE (
   column_name TEXT,
   data_type TEXT,
@@ -25,9 +25,9 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.tables 
     WHERE table_schema = 'public' 
-    AND table_name = p_table_name
+    AND table_name = table_name
   ) THEN
-    RAISE EXCEPTION 'Table does not exist: %', p_table_name;
+    RAISE EXCEPTION 'Table does not exist: %', table_name;
   END IF;
 
   RETURN QUERY
@@ -36,7 +36,7 @@ BEGIN
     c.data_type::TEXT,
     c.is_nullable::TEXT
   FROM information_schema.columns c
-  WHERE c.table_name = p_table_name
+  WHERE c.table_name = table_name
     AND c.table_schema = 'public'
     AND c.column_name NOT IN ('id', 'user_id', 'source_workbook', 'source_mapping_id', 'extracted_at')
   ORDER BY c.ordinal_position;

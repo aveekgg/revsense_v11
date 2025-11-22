@@ -148,7 +148,7 @@ serve(async (req) => {
     } else if (operation === 'update') {
       // Get current table columns
       const { data: currentColumns, error: columnsError } = await supabaseClient
-        .rpc('get_table_columns', { p_table_name: finalTableName });
+        .rpc('get_table_columns', { table_name: finalTableName });
 
       if (columnsError) {
         console.error('Error fetching current columns:', columnsError);
