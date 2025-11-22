@@ -9,14 +9,14 @@ DROP FUNCTION IF EXISTS public.get_table_columns(TEXT);
 DROP FUNCTION IF EXISTS public.execute_ddl(TEXT);
 
 -- 1. Function to sanitize table names
-CREATE OR REPLACE FUNCTION public.sanitize_table_name(input_name TEXT)
+CREATE OR REPLACE FUNCTION public.sanitize_table_name(name TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  RETURN lower(regexp_replace(input_name, '[^a-zA-Z0-9_]', '_', 'g'));
+  RETURN lower(regexp_replace(name, '[^a-zA-Z0-9_]', '_', 'g'));
 END;
 $$;
 
