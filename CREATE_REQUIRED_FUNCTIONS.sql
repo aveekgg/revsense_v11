@@ -21,7 +21,7 @@ END;
 $$;
 
 -- 2. Function to get table columns (for schema updates)
-CREATE OR REPLACE FUNCTION public.get_table_columns(p_table_name TEXT)
+CREATE OR REPLACE FUNCTION public.get_table_columns(table_name TEXT)
 RETURNS TABLE (
   column_name TEXT,
   data_type TEXT,
@@ -38,7 +38,7 @@ BEGIN
     c.data_type::TEXT,
     c.is_nullable::TEXT
   FROM information_schema.columns c
-  WHERE c.table_name = p_table_name
+  WHERE c.table_name = table_name
     AND c.table_schema = 'public'
     AND c.column_name NOT IN ('id', 'user_id', 'source_workbook', 'source_mapping_id', 'extracted_at');
 END;
