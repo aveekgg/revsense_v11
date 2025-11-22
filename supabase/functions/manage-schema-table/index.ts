@@ -18,6 +18,7 @@ const TYPE_MAPPING: Record<string, string> = {
   'email': 'TEXT',
   'phone': 'TEXT',
   'url': 'TEXT',
+  'enum': 'TEXT',
 };
 
 interface SchemaField {
@@ -167,7 +168,8 @@ serve(async (req) => {
       // Add new columns
       for (const field of toAdd) {
         const pgType = TYPE_MAPPING[field.type] || 'TEXT';
-        const nullable = field.required ? 'NOT NULL DEFAULT \'\'' : 'NULL';
+        // For enum fields, set default to NULL even if required, to avoid constraint issues
+        const nullable = (field.required && field.type !== 'enum') ? 'NOT NULL DEFAULT \'\'' : 'NULL';
         alterStatements.push(
           `ALTER TABLE public.${finalTableName} ADD COLUMN IF NOT EXISTS ${field.sanitizedName} ${pgType} ${nullable};`
         );
