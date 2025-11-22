@@ -388,13 +388,19 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     workbookName: string,
     mappingId: string
   ) => {
+    console.log('saveDataToCleanTable called with:', { schemaId, data, workbookName, mappingId });
+    
     // Get schema to determine table name and fields
     const schema = schemas.find(s => s.id === schemaId);
     if (!schema) {
+      console.error('Schema not found:', schemaId);
       throw new Error(`Schema not found: ${schemaId}`);
     }
 
+    console.log('Found schema:', { name: schema.name, fields: schema.fields });
+
     // Ensure the underlying clean_* table is in sync with the latest schema definition
+    console.log('Syncing schema table...');
     const { data: tableResult, error: tableError } = await supabase.functions.invoke('manage-schema-table', {
       body: {
         operation: 'update',
@@ -404,12 +410,17 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       },
     });
 
+    console.log('Schema table sync result:', { tableResult, tableError });
+
     if (tableError || !tableResult?.success) {
-      throw new Error(tableResult?.error || tableError?.message || 'Failed to sync schema table');
+      const errorMsg = tableResult?.error || tableError?.message || 'Failed to sync schema table';
+      console.error('Schema table sync failed:', errorMsg);
+      throw new Error(errorMsg);
     }
 
     // Sanitize the table name by removing special characters
     const tableName = `clean_${schema.name.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_')}`;
+    console.log('Inserting data into table:', tableName);
 
     // Use new edge function to insert data into schema-specific table
     const { data: insertResult, error } = await supabase.functions.invoke('insert-clean-data', {
@@ -421,13 +432,20 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     });
 
+    console.log('Insert result:', { insertResult, error });
+
     if (error) {
+      console.error('Insert error:', error);
       throw new Error(`Failed to save data: ${error.message}`);
     }
 
     if (!insertResult?.success) {
-      throw new Error(insertResult?.error || 'Failed to save data to table');
+      const errorMsg = insertResult?.error || 'Failed to save data to table';
+      console.error('Insert failed:', errorMsg);
+      throw new Error(errorMsg);
     }
+
+    console.log('Data inserted successfully, also saving to clean_data table...');
 
     // Also keep a record in the old clean_data table for backward compatibility (optional)
     await createCleanDataSupabase({
@@ -436,6 +454,8 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       sourceWorkbook: workbookName,
       sourceMappingId: mappingId,
     });
+
+    console.log('Successfully saved to both tables');
   }, [schemas, createCleanDataSupabase]);
 
   const getCleanTable = useCallback((schemaId: string) => {

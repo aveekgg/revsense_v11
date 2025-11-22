@@ -191,9 +191,22 @@ const AddData = () => {
                 mapping={selectedMapping}
                 schema={mappingSchema}
                 workbookData={workbookData}
-                onSaveToCleanTable={(data) => {
-                  saveDataToCleanTable(selectedMapping.schemaId, data, workbookData.fileName, selectedMapping.id);
-                  setSelectedMappingId('');
+                onSaveToCleanTable={async (data) => {
+                  try {
+                    await saveDataToCleanTable(selectedMapping.schemaId, data, workbookData.fileName, selectedMapping.id);
+                    toast({
+                      title: "Success",
+                      description: "Data saved to clean table successfully",
+                    });
+                    setSelectedMappingId('');
+                  } catch (error) {
+                    console.error('Error saving to clean table:', error);
+                    toast({
+                      title: "Error saving data",
+                      description: error instanceof Error ? error.message : 'Unknown error occurred',
+                      variant: "destructive",
+                    });
+                  }
                 }}
                 onClose={() => setSelectedMappingId('')}
               />
