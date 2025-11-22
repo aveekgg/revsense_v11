@@ -59,6 +59,8 @@ export function formatNumber(value: any, fieldName?: string, fieldType?: string)
 
 /**
  * Format currency values with proper currency symbol
+ * @param value - The numeric value to format
+ * @param currency - Currency code from the record's reporting_currency field (e.g., 'USD', 'INR')
  */
 export function formatCurrency(value: any, currency: string = 'USD'): string {
   if (value === null || value === undefined || value === '') return '-';
@@ -66,9 +68,12 @@ export function formatCurrency(value: any, currency: string = 'USD'): string {
   const num = Number(value);
   if (isNaN(num)) return String(value);
   
+  // Normalize currency code to uppercase
+  const currencyCode = (currency || 'USD').toUpperCase();
+  
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: currency,
+    currency: currencyCode,
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(num);
@@ -138,15 +143,19 @@ export function formatTimestamp(value: any): string {
 
 /**
  * Smart format - detects type and formats accordingly
+ * @param value - The value to format
+ * @param fieldName - The field name for heuristic detection
+ * @param fieldType - The explicit field type from schema
+ * @param currency - Currency code from the record's reporting_currency field
  */
-export function formatValue(value: any, fieldName?: string, fieldType?: string): string {
+export function formatValue(value: any, fieldName?: string, fieldType?: string, currency?: string): string {
   if (value === null || value === undefined || value === '') return '-';
   
   // PRIORITY 1: Use explicit field type if available (schema-based formatting)
   if (fieldType) {
     switch (fieldType) {
       case 'currency':
-        return formatCurrency(value);
+        return formatCurrency(value, currency);
       case 'integer':
         return Math.round(Number(value)).toLocaleString('en-US', {
           minimumFractionDigits: 0,
@@ -187,7 +196,7 @@ export function formatValue(value: any, fieldName?: string, fieldType?: string):
     if (!lowerFieldName.includes('rooms') && !lowerFieldName.includes('count') && 
         !lowerFieldName.includes('bookings') && !lowerFieldName.includes('guests') &&
         !lowerFieldName.includes('quantity') && !lowerFieldName.includes('available')) {
-      return formatCurrency(value);
+      return formatCurrency(value, currency);
     }
   }
   
@@ -216,9 +225,13 @@ export function formatValue(value: any, fieldName?: string, fieldType?: string):
 /**
  * Format table cell value based on column name and value
  * This is the main function to use for table displays
+ * @param value - The value to format
+ * @param columnName - The column name for heuristic detection
+ * @param fieldType - The explicit field type from schema
+ * @param currency - Currency code from the record's reporting_currency field
  */
-export function formatTableCell(value: any, columnName?: string, fieldType?: string): string {
-  return formatValue(value, columnName, fieldType);
+export function formatTableCell(value: any, columnName?: string, fieldType?: string, currency?: string): string {
+  return formatValue(value, columnName, fieldType, currency);
 }
 
 /**
@@ -261,13 +274,17 @@ export function isCountField(fieldName: string): boolean {
 /**
  * Enhanced formatter for Excel computed values
  * This is specifically for mapping/formula computation displays
+ * @param value - The value to format
+ * @param fieldName - The field name for heuristic detection
+ * @param fieldType - The explicit field type from schema
+ * @param currency - Currency code from the record's reporting_currency field
  */
-export function formatExcelValue(value: any, fieldName?: string, fieldType?: string): string {
+export function formatExcelValue(value: any, fieldName?: string, fieldType?: string, currency?: string): string {
   if (value === null || value === undefined || value === '') return '-';
   
   // Use field name for smart detection
   if (fieldName) {
-    return formatValue(value, fieldName);
+    return formatValue(value, fieldName, fieldType, currency);
   }
   
   // Fallback to field type if no name available
@@ -289,7 +306,7 @@ export function formatExcelValue(value: any, fieldName?: string, fieldType?: str
     }
   }
   
-  return formatValue(value);
+  return formatValue(value, undefined, undefined, currency);
 }
 
 /**
@@ -318,5 +335,5 @@ export function formatChartValue(value: any, dataKey?: string, options?: {
   }
   
   // Smart detection based on dataKey and fieldType
-  return formatValue(value, dataKey, options?.fieldType);
+  return formatValue(value, dataKey, options?.fieldType, options?.currency);
 }
