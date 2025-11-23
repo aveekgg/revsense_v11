@@ -584,7 +584,14 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const cellValue = row?.[colIndex];
 
           if (field && cellValue !== undefined && cellValue !== null && cellValue !== '') {
-            record[field.name] = cellValue;
+            // Normalize dates before storing
+            if (field.type === 'date' && cellValue instanceof Date && !isNaN(cellValue.getTime())) {
+              // Add 12 hours to round to correct day, then normalize to midnight UTC
+              const adjustedDate = new Date(cellValue.getTime() + 12 * 60 * 60 * 1000);
+              record[field.name] = new Date(Date.UTC(adjustedDate.getUTCFullYear(), adjustedDate.getUTCMonth(), adjustedDate.getUTCDate()));
+            } else {
+              record[field.name] = cellValue;
+            }
           }
         });
 
