@@ -108,11 +108,38 @@ export const useSupabaseSchemaTable = (schemaName?: string) => {
     },
   });
 
+  const deleteFilteredRecords = useMutation({
+    mutationFn: async (recordIds: string[]) => {
+      if (!tableName) throw new Error('No table selected');
+      if (recordIds.length === 0) return;
+      
+      const { error } = await (supabase as any)
+        .from(tableName)
+        .delete()
+        .in('id', recordIds);
+
+      if (error) throw error;
+      
+      return recordIds.length;
+    },
+    onSuccess: (deletedCount) => {
+      queryClient.invalidateQueries({ queryKey: ['schema-table-data'] });
+      toast({ 
+        title: 'Records deleted successfully', 
+        description: `${deletedCount} record${deletedCount === 1 ? '' : 's'} deleted` 
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to delete records', description: error.message, variant: 'destructive' });
+    },
+  });
+
   return {
     records,
     isLoading,
     error,
     deleteRecord: deleteRecord.mutateAsync,
     clearTable: clearTable.mutateAsync,
+    deleteFilteredRecords: deleteFilteredRecords.mutateAsync,
   };
 };

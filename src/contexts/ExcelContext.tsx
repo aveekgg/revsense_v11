@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { WorkbookData, GlobalSchemaField, CellReference, SavedMapping, RecentUpload, Schema, FieldMapping, CleanTableRecord } from '@/types/excel';
+import { WorkbookData, GlobalSchemaField, CellReference, SavedMapping, RecentUpload, Schema, FieldMapping, CleanTableRecord, BulkMapping, ColumnMapping } from '@/types/excel';
 import type { SavedMapping as SavedMappingType } from '@/types/excel';
 import { parseExcelFile } from '@/lib/excelParser';
 import { computeFormula, parseExcelFormula } from '@/lib/formulaComputer';
@@ -41,12 +41,15 @@ interface ExcelContextType {
   isMappingsLoading: boolean;
   
   // Clean Table Management
-  saveDataToCleanTable: (schemaId: string, data: Record<string, any>, workbookName: string, mappingId: string) => Promise<void>;
+  saveDataToCleanTable: (schemaId: string, data: Record<string, any>, workbookName: string, mappingId: string | null) => Promise<void>;
   getCleanTable: (schemaId: string) => CleanTableRecord[];
   deleteCleanTableRecord: (schemaId: string, recordId: string) => Promise<void>;
   clearCleanTableData: (schemaId: string) => Promise<void>;
   exportCleanTableData: (schemaId: string, format: 'json' | 'csv') => string;
   isCleanDataLoading: boolean;
+
+  // Bulk Upload Management
+  saveBulkDataToCleanTable: (schemaId: string, columnMappings: ColumnMapping[], workbookData: WorkbookData, selectedSheet: string, headerRow: number, startDataRow: number) => Promise<number>;
   
   // Legacy Methods
   uploadWorkbook: (file: File) => Promise<void>;
@@ -386,7 +389,7 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     schemaId: string,
     data: Record<string, any>,
     workbookName: string,
-    mappingId: string
+    mappingId: string | null
   ) => {
     console.log('saveDataToCleanTable called with:', { schemaId, data, workbookName, mappingId });
     
@@ -464,7 +467,7 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         tableName,
         data,
         sourceWorkbook: workbookName,
-        sourceMappingId: mappingId
+        sourceMappingId: mappingId // Can be null for bulk uploads
       }
     });
 
@@ -484,14 +487,18 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     console.log('Data inserted successfully, also saving to clean_data table...');
 
     // Also keep a record in the old clean_data table for backward compatibility (optional)
-    await createCleanDataSupabase({
-      schemaId,
-      data,
-      sourceWorkbook: workbookName,
-      sourceMappingId: mappingId,
-    });
-
-    console.log('Successfully saved to both tables');
+    // Only save to clean_data if mappingId is provided (for advanced mapping, not bulk upload)
+    if (mappingId) {
+      await createCleanDataSupabase({
+        schemaId,
+        data,
+        sourceWorkbook: workbookName,
+        sourceMappingId: mappingId,
+      });
+      console.log('Successfully saved to both tables');
+    } else {
+      console.log('Bulk upload: skipped clean_data table save (no mapping ID)');
+    }
   }, [schemas, createCleanDataSupabase]);
 
   const getCleanTable = useCallback((schemaId: string) => {
@@ -542,6 +549,69 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return csvRows.join('\n');
   }, [getCleanTable]);
 
+  const saveBulkDataToCleanTable = useCallback(async (
+    schemaId: string,
+    columnMappings: ColumnMapping[],
+    workbookData: WorkbookData,
+    selectedSheet: string,
+    headerRow: number,
+    startDataRow: number
+  ): Promise<number> => {
+    const schema = schemas.find(s => s.id === schemaId);
+    if (!schema) {
+      throw new Error(`Schema not found: ${schemaId}`);
+    }
+
+    const sheetData = workbookData.sheets[selectedSheet];
+    
+    if (!sheetData || sheetData.length < startDataRow) {
+      throw new Error(`No data rows found in sheet "${selectedSheet}" starting from row ${startDataRow}`);
+    }
+
+    let successCount = 0;
+    const errors: string[] = [];
+
+    // Process each row starting from startDataRow
+    for (let rowIndex = startDataRow - 1; rowIndex < sheetData.length; rowIndex++) {
+      try {
+        const row = sheetData[rowIndex];
+        const record: Record<string, any> = {};
+
+        // Map each column to schema field
+        columnMappings.forEach(mapping => {
+          const field = schema.fields.find(f => f.id === mapping.schemaFieldId);
+          const colIndex = mapping.excelColumn.charCodeAt(0) - 65; // A=0, B=1, etc.
+          const cellValue = row?.[colIndex];
+
+          if (field && cellValue !== undefined && cellValue !== null && cellValue !== '') {
+            record[field.name] = cellValue;
+          }
+        });
+
+        // Only save records with at least one field mapped
+        if (Object.keys(record).length > 0) {
+          await saveDataToCleanTable(
+            schemaId, 
+            record, 
+            `${workbookData.fileName}[${selectedSheet}]`, 
+            null // Pass null for bulk uploads since there's no mapping ID
+          );
+          successCount++;
+        }
+      } catch (rowError) {
+        const errorMessage = `Row ${rowIndex + 1}: ${rowError instanceof Error ? rowError.message : 'Unknown error'}`;
+        errors.push(errorMessage);
+        console.error(`Error processing row ${rowIndex + 1}:`, rowError);
+      }
+    }
+
+    if (errors.length > 0) {
+      console.warn('Bulk upload errors:', errors);
+    }
+
+    return successCount;
+  }, [schemas, saveDataToCleanTable]);
+
 
   return (
     <ExcelContext.Provider
@@ -574,6 +644,7 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         clearCleanTableData,
         exportCleanTableData,
         isCleanDataLoading,
+        saveBulkDataToCleanTable,
         uploadWorkbook,
         selectCells,
         addSchemaField,

@@ -103,3 +103,24 @@ export interface RecentUpload {
   uploadDate: string;
   workbookData: WorkbookData;
 }
+
+// Bulk Mapping Types (for direct column-to-field mapping)
+export interface BulkMapping {
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+  schemaId: string;
+  columnMappings: ColumnMapping[];
+  headerRow: number; // Row number containing headers (1-based)
+  startDataRow: number; // First row containing data (1-based)
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ColumnMapping {
+  schemaFieldId: string; // Links to SchemaField.id
+  excelColumn: string; // Column letter (e.g., "A", "B", "C") or column name
+  isValid: boolean;
+  error?: string;
+}

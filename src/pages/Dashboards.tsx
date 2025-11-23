@@ -1,112 +1,206 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import SecondaryTabs from "@/components/layout/SecondaryTabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, LayoutDashboard } from 'lucide-react';
+import { Plus, LayoutDashboard, Trash2, Settings } from 'lucide-react';
 import { useDashboards } from '@/hooks/useDashboards';
+import { useDashboardCharts } from '@/hooks/useDashboardCharts';
 import { CreateDashboardDialog } from '@/components/dashboard/CreateDashboardDialog';
-import { DashboardTabManager } from '@/components/dashboard/DashboardTabManager';
+import { DashboardChartItem } from '@/components/dashboard/DashboardChartItem';
 
 const Dashboards = () => {
-  const { dashboards, isLoading, createDashboard, isCreating } = useDashboards();
+  const { dashboards, isLoading, createDashboard, deleteDashboard, isCreating, isDeleting } = useDashboards();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [selectedDashboardId, setSelectedDashboardId] = useState<string | null>(null);
+  const [activeDashboard, setActiveDashboard] = useState<string>('');
+
+  const { charts, isLoading: isChartsLoading } = useDashboardCharts(activeDashboard);
+
+  // Set the first dashboard as active when dashboards load
+  useEffect(() => {
+    if (dashboards && dashboards.length > 0 && !activeDashboard) {
+      setActiveDashboard(dashboards[0].id);
+    }
+  }, [dashboards, activeDashboard]);
 
   const handleCreateDashboard = (data: { name: string; description?: string }) => {
     createDashboard(data);
     setShowCreateDialog(false);
   };
 
-  if (selectedDashboardId) {
+  const handleDeleteDashboard = () => {
+    if (!currentDashboard) return;
+    
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete "${currentDashboard.name}"? This action cannot be undone.`
+    );
+    
+    if (confirmDelete) {
+      deleteDashboard(currentDashboard.id);
+      
+      // Switch to another dashboard if available
+      if (dashboards && dashboards.length > 1) {
+        const remainingDashboards = dashboards.filter(d => d.id !== currentDashboard.id);
+        if (remainingDashboards.length > 0) {
+          setActiveDashboard(remainingDashboards[0].id);
+        }
+      } else {
+        setActiveDashboard('');
+      }
+    }
+  };
+
+  // If no dashboards exist, show empty state without tabs
+  if (!isLoading && (!dashboards || dashboards.length === 0)) {
     return (
-      <div className="h-full flex flex-col">
+      <div className="flex flex-col h-full">
         <div className="border-b bg-card px-6 py-4">
-          <Button 
-            variant="ghost" 
-            onClick={() => setSelectedDashboardId(null)}
-            className="mb-2"
-          >
-            ← Back to Dashboards
-          </Button>
-          <h1 className="text-2xl font-bold">
-            {dashboards?.find(d => d.id === selectedDashboardId)?.name || 'Dashboard'}
-          </h1>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold flex items-center gap-2">
+                <LayoutDashboard className="h-7 w-7 text-primary" />
+                Dashboards
+              </h2>
+              <p className="text-muted-foreground">
+                Create and manage your data dashboards
+              </p>
+            </div>
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Dashboard
+            </Button>
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-auto p-6">
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <LayoutDashboard className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No dashboards yet</h3>
+              <p className="text-muted-foreground mb-4 text-center max-w-sm">
+                Create your first dashboard to start organizing your data visualizations
+              </p>
+              <Button onClick={() => setShowCreateDialog(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Dashboard
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <CreateDashboardDialog 
+          open={showCreateDialog} 
+          onOpenChange={setShowCreateDialog}
+          onSubmit={handleCreateDashboard}
+          isLoading={isCreating}
+        />
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col h-full">
+        <div className="border-b bg-card px-6 py-4">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <LayoutDashboard className="h-7 w-7 text-primary" />
+            Dashboards
+          </h2>
         </div>
         <div className="flex-1 overflow-auto p-6">
-          <DashboardTabManager />
+          <div className="flex items-center justify-center h-64">
+            <div className="text-muted-foreground">Loading dashboards...</div>
+          </div>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <LayoutDashboard className="h-8 w-8 text-primary" />
-            Dashboards
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Manage and view all your data dashboards
-          </p>
-        </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Dashboard
-        </Button>
-      </div>
+  // Create tabs array with dashboard names plus a create button
+  const tabNames = dashboards?.map(d => d.name) || [];
+  const currentDashboard = dashboards?.find(d => d.id === activeDashboard);
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(3)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader>
-                <div className="h-6 bg-muted rounded w-3/4" />
-                <div className="h-4 bg-muted rounded w-1/2 mt-2" />
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      ) : dashboards && dashboards.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {dashboards.map((dashboard) => (
-            <Card 
-              key={dashboard.id} 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => setSelectedDashboardId(dashboard.id)}
-            >
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <LayoutDashboard className="h-5 w-5 text-primary" />
-                  {dashboard.name}
-                </CardTitle>
-                {dashboard.description && (
-                  <CardDescription>{dashboard.description}</CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Click to view dashboard
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <LayoutDashboard className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No dashboards yet</h3>
-            <p className="text-muted-foreground mb-4 text-center max-w-sm">
-              Create your first dashboard to start organizing your data visualizations
+  return (
+    <div className="flex flex-col h-full">
+      <div className="border-b bg-card px-6 py-4">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-2xl font-bold flex items-center gap-2">
+              <LayoutDashboard className="h-7 w-7 text-primary" />
+              Dashboards
+            </h2>
+            <p className="text-muted-foreground">
+              Manage and view your data dashboards
             </p>
-            <Button onClick={() => setShowCreateDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Dashboard
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+          <Button onClick={() => setShowCreateDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Dashboard
+          </Button>
+        </div>
+        
+        <SecondaryTabs 
+          tabs={tabNames} 
+          activeTab={currentDashboard?.name || ''} 
+          onTabChange={(tabName) => {
+            const dashboard = dashboards?.find(d => d.name === tabName);
+            if (dashboard) {
+              setActiveDashboard(dashboard.id);
+            }
+          }} 
+        />
+      </div>
+      
+      <div className="flex-1 overflow-auto p-6">
+        {currentDashboard && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Dashboard Actions Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                {currentDashboard.description && (
+                  <p className="text-sm text-muted-foreground">{currentDashboard.description}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDeleteDashboard}
+                  disabled={isDeleting}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  {isDeleting ? 'Deleting...' : 'Delete Dashboard'}
+                </Button>
+              </div>
+            </div>
+
+            {isChartsLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Loading charts...</div>
+            ) : !charts || charts.length === 0 ? (
+              <div className="text-center py-12 space-y-2">
+                <p className="text-muted-foreground">No charts in this dashboard yet</p>
+                <p className="text-sm text-muted-foreground">
+                  Go to the Feed tab and save queries to add them here
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {charts.map((chart) => (
+                  <DashboardChartItem
+                    key={chart.id}
+                    id={chart.id}
+                    title={chart.title}
+                    sql={chart.sql_query}
+                    chartType={chart.chart_type as any}
+                    config={chart.config}
+                    lastRefreshed={chart.config?.lastRefreshed}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <CreateDashboardDialog 
         open={showCreateDialog} 

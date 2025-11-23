@@ -61,58 +61,48 @@ export const DashboardTabManager = () => {
 
   return (
     <>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Dashboards</h2>
-          <Button onClick={() => setShowCreateDialog(true)} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            New Dashboard
-          </Button>
-        </div>
-
-        <Tabs value={activeDashboard} onValueChange={setActiveDashboard}>
-          <TabsList>
-            {dashboards.map((dashboard) => (
-              <TabsTrigger key={dashboard.id} value={dashboard.id}>
-                {dashboard.name}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
+      <Tabs value={activeDashboard} onValueChange={setActiveDashboard}>
+        <TabsList>
           {dashboards.map((dashboard) => (
-            <TabsContent key={dashboard.id} value={dashboard.id} className="space-y-4 mt-6">
-              {dashboard.description && (
-                <p className="text-sm text-muted-foreground">{dashboard.description}</p>
-              )}
-
-              {isChartsLoading ? (
-                <div className="text-center py-8 text-muted-foreground">Loading charts...</div>
-              ) : !charts || charts.length === 0 ? (
-                <div className="text-center py-12 space-y-2">
-                  <p className="text-muted-foreground">No charts in this dashboard yet</p>
-                  <p className="text-sm text-muted-foreground">
-                    Go to the Feed tab and save queries to add them here
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {charts.map((chart) => (
-                    <DashboardChartItem
-                      key={chart.id}
-                      id={chart.id}
-                      title={chart.title}
-                      sql={chart.sql_query}
-                      chartType={chart.chart_type as any}
-                      config={chart.config}
-                      lastRefreshed={chart.config?.lastRefreshed}
-                    />
-                  ))}
-                </div>
-              )}
-            </TabsContent>
+            <TabsTrigger key={dashboard.id} value={dashboard.id}>
+              {dashboard.name}
+            </TabsTrigger>
           ))}
-        </Tabs>
-      </div>
+        </TabsList>
+
+        {dashboards.map((dashboard) => (
+          <TabsContent key={dashboard.id} value={dashboard.id} className="space-y-4 mt-6">
+            {dashboard.description && (
+              <p className="text-sm text-muted-foreground">{dashboard.description}</p>
+            )}
+
+            {isChartsLoading ? (
+              <div className="text-center py-8 text-muted-foreground">Loading charts...</div>
+            ) : !charts || charts.length === 0 ? (
+              <div className="text-center py-12 space-y-2">
+                <p className="text-muted-foreground">No charts in this dashboard yet</p>
+                <p className="text-sm text-muted-foreground">
+                  Go to the Feed tab and save queries to add them here
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {charts.map((chart) => (
+                  <DashboardChartItem
+                    key={chart.id}
+                    id={chart.id}
+                    title={chart.title}
+                    sql={chart.sql_query}
+                    chartType={chart.chart_type as any}
+                    config={chart.config}
+                    lastRefreshed={chart.config?.lastRefreshed}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        ))}
+      </Tabs>
 
       <CreateDashboardDialog
         open={showCreateDialog}

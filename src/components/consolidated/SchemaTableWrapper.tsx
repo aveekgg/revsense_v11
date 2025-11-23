@@ -16,7 +16,7 @@ interface SchemaTableWrapperProps {
 }
 
 export function SchemaTableWrapper({ schema, queryClient }: SchemaTableWrapperProps) {
-  const { records, isLoading, deleteRecord, clearTable } = useSupabaseSchemaTable(schema.name);
+  const { records, isLoading, deleteRecord, clearTable, deleteFilteredRecords } = useSupabaseSchemaTable(schema.name);
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['schema-table-data'] });
@@ -31,6 +31,10 @@ export function SchemaTableWrapper({ schema, queryClient }: SchemaTableWrapperPr
     await clearTable();
   };
 
+  const handleDeleteFilteredRecords = async (recordIds: string[]) => {
+    await deleteFilteredRecords(recordIds);
+  };
+
   return (
     <CleanDataTable
       schema={schema}
@@ -39,6 +43,7 @@ export function SchemaTableWrapper({ schema, queryClient }: SchemaTableWrapperPr
       onRefresh={handleRefresh}
       onClearAll={handleClearTable}
       onDeleteRecord={handleDeleteRecord}
+      onDeleteFilteredRecords={handleDeleteFilteredRecords}
     />
   );
 }

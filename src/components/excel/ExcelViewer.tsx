@@ -3,15 +3,12 @@ import { useExcel } from '@/contexts/ExcelContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { columnIndexToLetter } from '@/lib/excelParser';
-import FormulaBar from './FormulaBar';
 import Handsontable from 'handsontable';
 import 'handsontable/dist/handsontable.full.css';
 import { toast } from '@/hooks/use-toast';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const ExcelViewer = () => {
   const { workbookData, selectedSheet, setSelectedSheet } = useExcel();
-  const [selectedRange, setSelectedRange] = useState<string>('');
   const [hoveredCell, setHoveredCell] = useState<{ ref: string; x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hotInstanceRef = useRef<Handsontable | null>(null);
@@ -51,12 +48,6 @@ const ExcelViewer = () => {
       manualColumnResize: true,
       manualRowResize: true,
       contextMenu: false,
-      afterSelection: (row, col, row2, col2) => {
-        const startCell = `${columnIndexToLetter(col)}${row + 1}`;
-        const endCell = `${columnIndexToLetter(col2)}${row2 + 1}`;
-        const range = startCell === endCell ? startCell : `${startCell}:${endCell}`;
-        setSelectedRange(range);
-      },
       afterOnCellMouseOver: (event, coords) => {
         if (coords.row >= 0 && coords.col >= 0) {
           const cellRef = `${columnIndexToLetter(coords.col)}${coords.row + 1}`;
@@ -142,9 +133,8 @@ const ExcelViewer = () => {
   }
 
   return (
-    <TooltipProvider>
-      <Card className="h-full flex flex-col relative">
-        <CardHeader className="pb-3">
+    <Card className="h-full flex flex-col relative">
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">{workbookData.fileName}</CardTitle>
         </div>
@@ -160,9 +150,6 @@ const ExcelViewer = () => {
           </Tabs>
         )}
       </CardHeader>
-      
-      {/* Formula Bar */}
-      <FormulaBar selectedRange={selectedRange} />
       
       <CardContent className="flex-1 overflow-auto p-4">
         <div ref={containerRef} className="w-full h-[600px]" />
@@ -184,7 +171,6 @@ const ExcelViewer = () => {
         </div>
       )}
     </Card>
-    </TooltipProvider>
   );
 };
 

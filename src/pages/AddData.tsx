@@ -4,10 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, Copy } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Upload, FileSpreadsheet, Copy, Zap, Grid } from "lucide-react";
 import ExcelViewer from '@/components/excel/ExcelViewer';
 import MappingCreationPane from '@/components/mapping/MappingCreationPane';
 import MappingApplicationPane from '@/components/mapping/MappingApplicationPane';
+import BulkMappingPane from '@/components/mapping/BulkMappingPane';
 import { toast } from '@/hooks/use-toast';
 
 const AddData = () => {
@@ -21,16 +23,20 @@ const AddData = () => {
     savedMappings, 
     saveMappingNew, 
     updateMappingById,
-    saveDataToCleanTable, 
+    saveDataToCleanTable,
+    saveBulkDataToCleanTable,
     getSchema,
     loadMappingForEdit,
     clearLoadedMapping,
     loadedMappingForEdit,
-    clearWorkbook
+    clearWorkbook,
+    selectedSheet,
+    setSelectedSheet
   } = useExcel();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedMappingId, setSelectedMappingId] = useState('');
   const [templateMapping, setTemplateMapping] = useState<typeof savedMappings[0] | null>(null);
+  const [activeTab, setActiveTab] = useState<'advanced' | 'bulk'>('advanced');
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -113,12 +119,12 @@ const AddData = () => {
           ) : (
             <>
               <div className="flex items-center justify-between gap-4 mb-4">
-                <div className="flex items-center gap-2 flex-1">
+                <div className="flex items-center gap-2 flex-1 relative z-50">
                   <Select value={selectedMappingId} onValueChange={setSelectedMappingId}>
-                    <SelectTrigger className="w-[300px]">
+                    <SelectTrigger className="w-[300px] relative z-50">
                       <SelectValue placeholder="Apply existing mapping..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="relative z-50">
                       {savedMappings.filter(m => m.schemaId).map(m => (
                         <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
                       ))}
@@ -129,6 +135,7 @@ const AddData = () => {
                     onClick={handleLoadAsTemplate}
                     disabled={!selectedMappingId}
                     title="Load as template to create a new mapping"
+                    className="relative z-40"
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -140,12 +147,15 @@ const AddData = () => {
                     setSelectedMappingId('');
                     setTemplateMapping(null);
                   }}
+                  className="relative z-40"
                 >
                   <Upload className="mr-2 h-4 w-4" />
                   Clear & Upload New
                 </Button>
               </div>
-              <ExcelViewer />
+              <div className="relative z-10">
+                <ExcelViewer />
+              </div>
             </>
           )}
 
@@ -211,23 +221,78 @@ const AddData = () => {
                 onClose={() => setSelectedMappingId('')}
               />
             ) : (
-              <MappingCreationPane
-                schemas={schemas}
-                workbookData={workbookData}
-                existingMapping={loadedMappingForEdit}
-                templateMapping={templateMapping}
-                onSave={async (name, desc, tags, schemaId, mappings) => {
-                  await saveMappingNew(name, desc, tags, schemaId, mappings);
-                  setTemplateMapping(null);
-                }}
-                onUpdate={async (id, name, desc, tags, schemaId, mappings) => {
-                  await updateMappingById(id, name, desc, tags, schemaId, mappings);
-                }}
-                onCancel={() => {
-                  clearLoadedMapping();
-                  setTemplateMapping(null);
-                }}
-              />
+              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'advanced' | 'bulk')} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="advanced" className="flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    <span className="hidden sm:inline">Advanced Mapping</span>
+                    <span className="sm:hidden">Advanced</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="bulk" className="flex items-center gap-2">
+                    <Grid className="h-4 w-4" />
+                    <span className="hidden sm:inline">Bulk Upload</span>
+                    <span className="sm:hidden">Bulk</span>
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="advanced" className="mt-4">
+                  <MappingCreationPane
+                    schemas={schemas}
+                    workbookData={workbookData}
+                    existingMapping={loadedMappingForEdit}
+                    templateMapping={templateMapping}
+                    onSave={async (name, desc, tags, schemaId, mappings) => {
+                      await saveMappingNew(name, desc, tags, schemaId, mappings);
+                      setTemplateMapping(null);
+                    }}
+                    onUpdate={async (id, name, desc, tags, schemaId, mappings) => {
+                      await updateMappingById(id, name, desc, tags, schemaId, mappings);
+                    }}
+                    onCancel={() => {
+                      clearLoadedMapping();
+                      setTemplateMapping(null);
+                    }}
+                  />
+                </TabsContent>
+                
+                <TabsContent value="bulk" className="mt-4">
+                  <BulkMappingPane
+                    schemas={schemas}
+                    workbookData={workbookData}
+                    selectedSheet={selectedSheet}
+                    onSheetChange={setSelectedSheet}
+                    onBulkSave={async (schemaId, columnMappings, headerRow, startDataRow) => {
+                      try {
+                        if (!workbookData) {
+                          throw new Error('No workbook data available');
+                        }
+
+                        const successCount = await saveBulkDataToCleanTable(
+                          schemaId,
+                          columnMappings,
+                          workbookData,
+                          selectedSheet,
+                          headerRow,
+                          startDataRow
+                        );
+
+                        toast({
+                          title: "Bulk upload completed",
+                          description: `Successfully saved ${successCount} records to clean table from sheet "${selectedSheet}"`,
+                        });
+
+                      } catch (error) {
+                        console.error('Bulk save error:', error);
+                        toast({
+                          title: "Bulk upload failed",
+                          description: error instanceof Error ? error.message : 'Unknown error occurred',
+                          variant: "destructive",
+                        });
+                      }
+                    }}
+                  />
+                </TabsContent>
+              </Tabs>
             )}
           </div>
         </div>
