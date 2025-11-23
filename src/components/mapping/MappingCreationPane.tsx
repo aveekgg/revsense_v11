@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Schema, FieldMapping, WorkbookData, SavedMapping } from '@/types/excel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,8 +37,8 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
   // Storage key for draft state
   const DRAFT_STORAGE_KEY = 'mapping-creation-draft';
   
-  // Save draft to localStorage whenever state changes (debounced)
-  useEffect(() => {
+  // Helper function to save draft
+  const saveDraft = useCallback(() => {
     // Don't save draft if editing existing mapping or using template
     if (isEditMode || isTemplateMode) return;
     
@@ -56,6 +56,32 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
       localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
     }
   }, [mappingName, description, tagsInput, selectedSchemaId, fieldMappings, isEditMode, isTemplateMode]);
+  
+  // Save draft to localStorage whenever state changes
+  useEffect(() => {
+    saveDraft();
+  }, [saveDraft]);
+  
+  // Save draft before tab/window closes or switches
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveDraft();
+    };
+    
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        saveDraft();
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [saveDraft]);
   
   // Restore draft on component mount
   useEffect(() => {
