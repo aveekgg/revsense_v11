@@ -171,7 +171,7 @@ export const EnhancedDataTable = ({
                     {idx + 1}
                   </TableCell>
                   {columns.map(col => (
-                    <TableCell key={col} className="py-1.5 px-3 text-xs font-mono">
+                    <TableCell key={col} className="py-1.5 px-3 text-xs font-mono text-left">
                       {row[col] !== null && row[col] !== undefined 
                         ? formatTableCell(row[col], col, undefined, row.reporting_currency)
                         : <span className="text-muted-foreground">-</span>}

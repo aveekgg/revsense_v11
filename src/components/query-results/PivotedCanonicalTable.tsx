@@ -122,7 +122,7 @@ export const PivotedCanonicalTable = ({
                     group.metrics.map((col, idx) => (
                       <TableCell 
                         key={col} 
-                        className={`py-2 px-3 text-xs text-right font-mono ${
+                        className={`py-2 px-3 text-xs text-left font-mono ${
                           idx === group.metrics.length - 1 ? 'border-r' : ''
                         }`}
                       >
