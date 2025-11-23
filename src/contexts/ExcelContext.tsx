@@ -101,12 +101,67 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     tagsInput: string;
     selectedSchemaId: string;
     fieldMappings: FieldMapping[];
-  }>({
-    mappingName: '',
-    description: '',
-    tagsInput: '',
-    selectedSchemaId: '',
-    fieldMappings: [],
+  }>(() => {
+    if (typeof window === 'undefined') {
+      return {
+        mappingName: '',
+        description: '',
+        tagsInput: '',
+        selectedSchemaId: '',
+        fieldMappings: [],
+      };
+    }
+
+    try {
+      const raw = window.localStorage.getItem('mapping-creation-draft-v2');
+      if (!raw) {
+        return {
+          mappingName: '',
+          description: '',
+          tagsInput: '',
+          selectedSchemaId: '',
+          fieldMappings: [],
+        };
+      }
+
+      const parsed = JSON.parse(raw) as {
+        mappingName: string;
+        description: string;
+        tagsInput: string;
+        selectedSchemaId: string;
+        fieldMappings: FieldMapping[];
+        timestamp?: number;
+      };
+
+      // Optional expiry: 24 hours
+      if (parsed.timestamp && Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000) {
+        window.localStorage.removeItem('mapping-creation-draft-v2');
+        return {
+          mappingName: '',
+          description: '',
+          tagsInput: '',
+          selectedSchemaId: '',
+          fieldMappings: [],
+        };
+      }
+
+      return {
+        mappingName: parsed.mappingName || '',
+        description: parsed.description || '',
+        tagsInput: parsed.tagsInput || '',
+        selectedSchemaId: parsed.selectedSchemaId || '',
+        fieldMappings: parsed.fieldMappings || [],
+      };
+    } catch (error) {
+      console.error('Failed to restore mapping draft from localStorage:', error);
+      return {
+        mappingName: '',
+        description: '',
+        tagsInput: '',
+        selectedSchemaId: '',
+        fieldMappings: [],
+      };
+    }
   });
   
   // Use Supabase hooks for data management
@@ -329,6 +384,18 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     fieldMappings: FieldMapping[];
   }) => {
     setMappingDraftState(draft);
+
+    if (typeof window !== 'undefined') {
+      try {
+        const payload = {
+          ...draft,
+          timestamp: Date.now(),
+        };
+        window.localStorage.setItem('mapping-creation-draft-v2', JSON.stringify(payload));
+      } catch (error) {
+        console.error('Failed to persist mapping draft to localStorage:', error);
+      }
+    }
   }, []);
 
   // Schema Management Functions
