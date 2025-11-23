@@ -290,7 +290,7 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
 
       const value = await computeFormula(mapping.formula, mapping.cellReferences, workbookData, targetType, enumOptions);
       
-      setFieldMappings(prev => prev.map(fm => {
+      const updatedMappings = fieldMappings.map(fm => {
         if (fm.schemaFieldId === schemaFieldId) {
           return {
             ...fm,
@@ -300,7 +300,21 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
           };
         }
         return fm;
-      }));
+      });
+      
+      setFieldMappings(updatedMappings);
+      
+      // Immediately save to localStorage after evaluation
+      if (!isEditMode && !isTemplateMode) {
+        console.log('💾 Saving draft after formula evaluation with', updatedMappings.length, 'field mappings');
+        saveDraftImmediately({
+          mappingName,
+          description,
+          tagsInput,
+          selectedSchemaId,
+          fieldMappings: updatedMappings,
+        });
+      }
 
       if (value !== null && value !== undefined) {
         toast({
@@ -309,7 +323,7 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
         });
       }
     } catch (error) {
-      setFieldMappings(prev => prev.map(fm => {
+      const updatedMappings = fieldMappings.map(fm => {
         if (fm.schemaFieldId === schemaFieldId) {
           return {
             ...fm,
@@ -318,7 +332,21 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
           };
         }
         return fm;
-      }));
+      });
+      
+      setFieldMappings(updatedMappings);
+      
+      // Immediately save to localStorage even on error
+      if (!isEditMode && !isTemplateMode) {
+        console.log('💾 Saving draft after formula error with', updatedMappings.length, 'field mappings');
+        saveDraftImmediately({
+          mappingName,
+          description,
+          tagsInput,
+          selectedSchemaId,
+          fieldMappings: updatedMappings,
+        });
+      }
     }
   };
 
