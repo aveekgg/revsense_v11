@@ -78,19 +78,34 @@ const ExcelViewer = () => {
       cells: (row, col) => {
         const cellRef = `${columnIndexToLetter(col)}${row + 1}`;
         const style = cellStyles[cellRef];
-        
-        if (!style) return {};
+        const cellData = sheetData[row]?.[col];
         
         const cellProperties: any = {};
         
-        // Apply text styles via className
-        const classNames: string[] = [];
-        if (style.bold) classNames.push('htBold');
-        if (style.italic) classNames.push('htItalic');
-        if (style.underline) classNames.push('htUnderline');
+        // Check if this cell contains a Date object and format it properly
+        if (cellData instanceof Date && !isNaN(cellData.getTime())) {
+          cellProperties.renderer = function(instance: any, td: HTMLTableCellElement, row: number, col: number, prop: any, value: any, cellProperties: any) {
+            // Format date as YYYY-MM-DD to avoid timezone display issues
+            if (value instanceof Date && !isNaN(value.getTime())) {
+              const dateStr = value.toISOString().split('T')[0];
+              td.textContent = dateStr;
+            } else {
+              td.textContent = value !== null && value !== undefined ? String(value) : '';
+            }
+            return td;
+          };
+        }
         
-        if (classNames.length > 0) {
-          cellProperties.className = classNames.join(' ');
+        // Apply text styles via className
+        if (style) {
+          const classNames: string[] = [];
+          if (style.bold) classNames.push('htBold');
+          if (style.italic) classNames.push('htItalic');
+          if (style.underline) classNames.push('htUnderline');
+          
+          if (classNames.length > 0) {
+            cellProperties.className = classNames.join(' ');
+          }
         }
         
         return cellProperties;
