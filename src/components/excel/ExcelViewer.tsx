@@ -85,24 +85,15 @@ const ExcelViewer = () => {
         // Check if this cell contains a Date object and format it properly
         if (cellData instanceof Date && !isNaN(cellData.getTime())) {
           cellProperties.renderer = function(instance: any, td: HTMLTableCellElement, row: number, col: number, prop: any, value: any, cellProperties: any) {
-            // Format date as YYYY-MM-DD using UTC components to match Excel's date storage
-            // Excel dates are stored as day counts from epoch, converted to UTC by xlsx library
+            // Format date as YYYY-MM-DD
             if (value instanceof Date && !isNaN(value.getTime())) {
-              // Debug logging
-              console.log('Date cell:', {
-                rawValue: value,
-                isoString: value.toISOString(),
-                localDate: value.getDate(),
-                utcDate: value.getUTCDate(),
-                localMonth: value.getMonth(),
-                utcMonth: value.getUTCMonth(),
-                localYear: value.getFullYear(),
-                utcYear: value.getUTCFullYear()
-              });
+              // Excel dates can have time components (like 23:59:50) due to floating point precision
+              // Round to nearest day by adding 12 hours and then taking the date components
+              const adjustedDate = new Date(value.getTime() + 12 * 60 * 60 * 1000);
               
-              const year = value.getUTCFullYear();
-              const month = String(value.getUTCMonth() + 1).padStart(2, '0');
-              const day = String(value.getUTCDate()).padStart(2, '0');
+              const year = adjustedDate.getUTCFullYear();
+              const month = String(adjustedDate.getUTCMonth() + 1).padStart(2, '0');
+              const day = String(adjustedDate.getUTCDate()).padStart(2, '0');
               const dateStr = `${year}-${month}-${day}`;
               td.textContent = dateStr;
             } else {
