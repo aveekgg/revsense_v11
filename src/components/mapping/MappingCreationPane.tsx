@@ -30,6 +30,7 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
   const [selectedSchemaId, setSelectedSchemaId] = useState('');
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   const selectedSchema = schemas.find(s => s.id === selectedSchemaId);
   const isEditMode = !!existingMapping;
@@ -132,6 +133,9 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
           setTagsInput(draft.tagsInput || '');
           setSelectedSchemaId(draft.selectedSchemaId || '');
           setFieldMappings(draft.fieldMappings || []);
+          setDraftRestored(true); // Mark that we restored from draft
+          
+          console.log('📋 Draft restored with field mappings:', draft.fieldMappings?.length || 0);
           
           toast({
             title: "Draft Restored",
@@ -147,6 +151,16 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
   // Clear draft when successfully saved
   const clearDraft = () => {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
+  };
+
+  // Handle schema selection change
+  const handleSchemaChange = (schemaId: string) => {
+    setSelectedSchemaId(schemaId);
+    // If user manually changes schema after draft restore, allow re-initialization
+    if (draftRestored) {
+      setDraftRestored(false);
+      console.log('🔄 Schema changed manually, will re-initialize field mappings');
+    }
   };
 
   // Load existing mapping data for editing
@@ -222,8 +236,9 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
   }, [templateMapping, schemas]);
 
   useEffect(() => {
-    if (selectedSchema && !isEditMode && !isTemplateMode) {
+    if (selectedSchema && !isEditMode && !isTemplateMode && !draftRestored) {
       // Initialize field mappings for all schema fields (only when creating new from scratch)
+      // Skip if we just restored from draft to preserve the restored field mappings
       const initialMappings: FieldMapping[] = selectedSchema.fields.map(field => ({
         schemaFieldId: field.id,
         formula: '',
@@ -232,8 +247,9 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
         error: undefined,
       }));
       setFieldMappings(initialMappings);
+      console.log('🆕 Initialized empty field mappings for schema:', selectedSchema.name);
     }
-  }, [selectedSchema, isEditMode, isTemplateMode]);
+  }, [selectedSchema, isEditMode, isTemplateMode, draftRestored]);
 
   const handleUpdateFieldMapping = (schemaFieldId: string, formula: string) => {
     if (!workbookData) return;
@@ -535,7 +551,7 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
 
               <div className="space-y-2">
                 <Label htmlFor="schema-select">Select Schema (Clean Table)</Label>
-                <Select value={selectedSchemaId} onValueChange={setSelectedSchemaId}>
+                <Select value={selectedSchemaId} onValueChange={handleSchemaChange}>
                   <SelectTrigger id="schema-select">
                     <SelectValue placeholder="Choose a schema..." />
                   </SelectTrigger>
