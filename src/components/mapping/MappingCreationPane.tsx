@@ -79,11 +79,6 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
   // Handle schema selection change
   const handleSchemaChange = (schemaId: string) => {
     setSelectedSchemaId(schemaId);
-    // If user manually changes schema after draft restore, allow re-initialization
-    if (draftRestored) {
-      setDraftRestored(false);
-      console.log('🔄 Schema changed manually, will re-initialize field mappings');
-    }
   };
 
   // Load existing mapping data for editing
@@ -159,18 +154,24 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
   }, [templateMapping, schemas]);
 
   useEffect(() => {
-    if (selectedSchema && !isEditMode && !isTemplateMode && !draftRestored) {
-      // Only initialize if we don't already have field mappings (i.e., not from draft restore)
-      // This prevents overwriting field mappings that were restored from draft
-      const hasExistingMappings = fieldMappings.length > 0 && fieldMappings.some(fm => fm.formula);
-      
-      if (hasExistingMappings) {
-        console.log('⏭️  Skipping initialization - field mappings already exist with formulas');
-        return;
-      }
-      
-      // Initialize field mappings for all schema fields (only when creating new from scratch)
-      // Skip if we just restored from draft to preserve the restored field mappings
+    if (!selectedSchema || isEditMode || isTemplateMode) return;
+
+    // If there's a draft for this schema with any mappings, trust it and don't re-initialize
+    const hasDraftForSchema =
+      mappingDraft.selectedSchemaId === selectedSchema.id &&
+      mappingDraft.fieldMappings &&
+      mappingDraft.fieldMappings.length > 0;
+
+    if (hasDraftForSchema) {
+      // Make sure local state mirrors the draft (in case we just switched schemas back)
+      setFieldMappings(mappingDraft.fieldMappings);
+      setDraftRestored(true);
+      console.log('📄 Using existing draft field mappings for schema:', selectedSchema.name);
+      return;
+    }
+
+    // Only initialize if we don't already have any mappings locally
+    if (fieldMappings.length === 0) {
       const initialMappings: FieldMapping[] = selectedSchema.fields.map(field => ({
         schemaFieldId: field.id,
         formula: '',
@@ -181,7 +182,7 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
       setFieldMappings(initialMappings);
       console.log('🆕 Initialized empty field mappings for schema:', selectedSchema.name);
     }
-  }, [selectedSchema, isEditMode, isTemplateMode, draftRestored]);
+  }, [selectedSchema, isEditMode, isTemplateMode, mappingDraft.selectedSchemaId, mappingDraft.fieldMappings, fieldMappings.length]);
 
   const handleUpdateFieldMapping = (schemaFieldId: string, formula: string) => {
     if (!workbookData) return;
