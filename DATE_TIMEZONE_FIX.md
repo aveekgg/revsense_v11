@@ -32,8 +32,8 @@ Instead of the expected:
 Modified `ExcelViewer.tsx` to use a custom Handsontable renderer for date cells that:
 
 1. Detects cells containing JavaScript `Date` objects
-2. Formats them using `.toISOString().split('T')[0]` to extract only the date portion
-3. Displays as `YYYY-MM-DD` format (e.g., `2024-01-01`)
+2. Formats them using local date components (`getFullYear()`, `getMonth()`, `getDate()`) to avoid timezone conversion
+3. Displays as `YYYY-MM-DD` format (e.g., `2024-01-01`) without any timezone shift
 
 ### Code Changes
 
@@ -52,9 +52,12 @@ cells: (row, col) => {
   // Check if this cell contains a Date object and format it properly
   if (cellData instanceof Date && !isNaN(cellData.getTime())) {
     cellProperties.renderer = function(instance: any, td: HTMLTableCellElement, row: number, col: number, prop: any, value: any, cellProperties: any) {
-      // Format date as YYYY-MM-DD to avoid timezone display issues
+      // Format date as YYYY-MM-DD using local date components to avoid timezone shift
       if (value instanceof Date && !isNaN(value.getTime())) {
-        const dateStr = value.toISOString().split('T')[0];
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
         td.textContent = dateStr;
       } else {
         td.textContent = value !== null && value !== undefined ? String(value) : '';
