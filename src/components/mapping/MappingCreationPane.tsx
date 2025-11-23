@@ -390,13 +390,12 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
         onSave(mappingName, description, tags, selectedSchemaId, validMappings);
         clearDraft(); // Clear draft after successful save
       }
-        
-        toast({
-          title: "Mapping saved",
-          description: `Saved ${validMappings.length} field mapping${validMappings.length > 1 ? 's' : ''}`,
-        });
-      }
     }
+    
+    toast({
+      title: "Mapping saved",
+      description: `Saved mapping successfully`,
+    });
 
     // Reset form only if not in edit mode
     if (!isEditMode) {
