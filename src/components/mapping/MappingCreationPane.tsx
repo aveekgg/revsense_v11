@@ -128,14 +128,24 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
         // Only restore if draft is less than 24 hours old
         const age = Date.now() - draft.timestamp;
         if (age < 24 * 60 * 60 * 1000) {
+          // IMPORTANT: Set draftRestored FIRST to prevent race condition
+          setDraftRestored(true);
+          
+          // Then restore all the data
           setMappingName(draft.mappingName || '');
           setDescription(draft.description || '');
           setTagsInput(draft.tagsInput || '');
-          setSelectedSchemaId(draft.selectedSchemaId || '');
-          setFieldMappings(draft.fieldMappings || []);
-          setDraftRestored(true); // Mark that we restored from draft
           
-          console.log('📋 Draft restored with field mappings:', draft.fieldMappings?.length || 0);
+          // Restore field mappings BEFORE setting schema to avoid initialization race
+          if (draft.fieldMappings && draft.fieldMappings.length > 0) {
+            setFieldMappings(draft.fieldMappings);
+            console.log('📋 Draft restored with field mappings:', draft.fieldMappings.length);
+          }
+          
+          // Set schema LAST so the useEffect sees draftRestored=true
+          if (draft.selectedSchemaId) {
+            setSelectedSchemaId(draft.selectedSchemaId);
+          }
           
           toast({
             title: "Draft Restored",
@@ -237,6 +247,15 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
 
   useEffect(() => {
     if (selectedSchema && !isEditMode && !isTemplateMode && !draftRestored) {
+      // Only initialize if we don't already have field mappings (i.e., not from draft restore)
+      // This prevents overwriting field mappings that were restored from draft
+      const hasExistingMappings = fieldMappings.length > 0 && fieldMappings.some(fm => fm.formula);
+      
+      if (hasExistingMappings) {
+        console.log('⏭️  Skipping initialization - field mappings already exist with formulas');
+        return;
+      }
+      
       // Initialize field mappings for all schema fields (only when creating new from scratch)
       // Skip if we just restored from draft to preserve the restored field mappings
       const initialMappings: FieldMapping[] = selectedSchema.fields.map(field => ({
@@ -266,6 +285,8 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
       }
       return fm;
     }));
+    
+    console.log('✏️  Formula updated for field:', schemaFieldId, '- Formula:', formula);
   };
 
   const handleTestFormula = async (schemaFieldId: string) => {
