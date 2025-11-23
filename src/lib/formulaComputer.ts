@@ -109,12 +109,27 @@ const castToType = (value: any, targetType: string, enumOptions?: string[]): any
     
     case 'date':
       if (typeof value === 'number') {
+        // Excel serial date to JavaScript Date
         const excelEpoch = new Date(1900, 0, 1);
         const days = value - 2;
-        return new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
+        const date = new Date(excelEpoch.getTime() + days * 24 * 60 * 60 * 1000);
+        // Normalize to midnight UTC to avoid timezone issues
+        return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
       }
+      
+      // Handle Date objects (from Excel parsing)
+      if (value instanceof Date && !isNaN(value.getTime())) {
+        // Excel dates often have time components like 23:59:50 due to floating point precision
+        // Add 12 hours to round to correct day, then normalize to midnight UTC
+        const adjustedDate = new Date(value.getTime() + 12 * 60 * 60 * 1000);
+        return new Date(Date.UTC(adjustedDate.getUTCFullYear(), adjustedDate.getUTCMonth(), adjustedDate.getUTCDate()));
+      }
+      
+      // Handle string dates
       const dateAttempt = new Date(value);
-      return isNaN(dateAttempt.getTime()) ? null : dateAttempt;
+      if (isNaN(dateAttempt.getTime())) return null;
+      // Normalize to midnight UTC
+      return new Date(Date.UTC(dateAttempt.getUTCFullYear(), dateAttempt.getUTCMonth(), dateAttempt.getUTCDate()));
     
     case 'boolean':
       if (typeof value === 'boolean') return value;

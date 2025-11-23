@@ -126,11 +126,28 @@ To verify the fix:
 
 ## Related Files
 
-- `src/components/excel/ExcelViewer.tsx` - ✏️ Modified (display fix)
+- `src/components/excel/ExcelViewer.tsx` - ✏️ Modified (display fix with 12-hour rounding)
+- `src/lib/formulaComputer.ts` - ✏️ Modified (normalize dates to midnight UTC before storage)
 - `src/lib/excelParser.ts` - ✓ Unchanged (parsing works correctly)
-- `src/lib/formulaComputer.ts` - ✓ Unchanged (computation works correctly)
 - `src/lib/formatters.ts` - ✓ Unchanged (formatting works correctly)
 - `supabase/functions/manage-schema-table/index.ts` - ✓ Unchanged (DATE column type)
+
+## Additional Fix - Date Storage Normalization
+
+**Problem**: Even though dates displayed correctly in the Excel preview, they were still being stored with time components in the database (e.g., `2024-11-30T18:29:50.000Z`), causing the same timezone shift issue when retrieved.
+
+**Solution**: Modified `formulaComputer.ts` `castToType` function to normalize all dates to midnight UTC before storage:
+
+```typescript
+case 'date':
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    // Add 12 hours to round to correct day, then normalize to midnight UTC
+    const adjustedDate = new Date(value.getTime() + 12 * 60 * 60 * 1000);
+    return new Date(Date.UTC(adjustedDate.getUTCFullYear(), adjustedDate.getUTCMonth(), adjustedDate.getUTCDate()));
+  }
+```
+
+This ensures dates are stored as `2024-11-30T00:00:00.000Z` (midnight UTC) in the database.
 
 ---
 
