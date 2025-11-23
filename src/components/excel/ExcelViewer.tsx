@@ -88,6 +88,18 @@ const ExcelViewer = () => {
             // Format date as YYYY-MM-DD using UTC components to match Excel's date storage
             // Excel dates are stored as day counts from epoch, converted to UTC by xlsx library
             if (value instanceof Date && !isNaN(value.getTime())) {
+              // Debug logging
+              console.log('Date cell:', {
+                rawValue: value,
+                isoString: value.toISOString(),
+                localDate: value.getDate(),
+                utcDate: value.getUTCDate(),
+                localMonth: value.getMonth(),
+                utcMonth: value.getUTCMonth(),
+                localYear: value.getFullYear(),
+                utcYear: value.getUTCFullYear()
+              });
+              
               const year = value.getUTCFullYear();
               const month = String(value.getUTCMonth() + 1).padStart(2, '0');
               const day = String(value.getUTCDate()).padStart(2, '0');
