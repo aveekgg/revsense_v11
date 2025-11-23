@@ -2,38 +2,44 @@
 
 ## Problem
 
-When uploading Excel files with date columns, the Excel preview (using Handsontable) was showing dates with timezone information that shifted the dates incorrectly:
+When uploading Excel files with date columns, the Excel preview (using Handsontable) was showing dates shifted by the timezone offset:
 
+**Expected**: `2024-01-01`  
+**Actual**: `2023-12-31` (in IST timezone, UTC+5:30)
+
+Earlier it was also showing the full datetime string:
 ```
 Sun Dec 31 2023 23:59:50 GMT+0530 (India Standard Time)
 ```
 
-Instead of the expected:
-```
-2024-01-01
-```
-
 ## Root Cause
 
-1. **Excel Date Parsing**: Excel stores dates as serial numbers (e.g., `45234` = Oct 8, 2023)
-2. **Automatic Conversion**: The `excelParser.ts` correctly converts these to JavaScript `Date` objects using `cellDates: true`
-3. **Display Issue**: Handsontable was using the default `.toString()` method on `Date` objects, which includes:
-   - Full datetime (not just the date)
-   - Timezone offset (e.g., GMT+0530)
-   - This caused dates to appear shifted when displayed in different timezones
+1. **Excel Date Storage**: Excel stores dates as serial numbers (e.g., `45292` = Jan 1, 2024)
+2. **XLSX Library Conversion**: The XLSX library with `cellDates: true` converts these serial numbers to JavaScript `Date` objects in **UTC timezone**
+3. **The Issue**: 
+   - Excel date "January 1, 2024" → XLSX creates `new Date('2024-01-01T00:00:00.000Z')` (UTC midnight)
+   - When using **local timezone methods** (like `getDate()`, `getMonth()`), JavaScript applies the timezone offset
+   - In IST (UTC+5:30), this UTC midnight becomes the previous day's evening (Dec 31, 2023 at 5:30 PM local time)
+   - So `getDate()` returns 31 instead of 1!
 
-### Example of the Issue:
-- **Actual Date**: January 1, 2024 (stored in Excel)
-- **Parsed as**: `new Date('2024-01-01T00:00:00.000Z')` (midnight UTC)
-- **Displayed in IST (UTC+5:30)**: December 31, 2023 23:59:50 (shifted back 5.5 hours)
+### The Timezone Trap:
+
+```javascript
+// XLSX library creates this (UTC):
+const excelDate = new Date('2024-01-01T00:00:00.000Z');
+
+// In IST timezone (UTC+5:30):
+excelDate.getDate()     // Returns: 31 (Dec 31) ❌ WRONG!
+excelDate.getUTCDate()  // Returns: 1  (Jan 1)  ✅ CORRECT!
+```
 
 ## Solution
 
-Modified `ExcelViewer.tsx` to use a custom Handsontable renderer for date cells that:
+Modified `ExcelViewer.tsx` to use **UTC date components** instead of local timezone methods:
 
 1. Detects cells containing JavaScript `Date` objects
-2. Formats them using local date components (`getFullYear()`, `getMonth()`, `getDate()`) to avoid timezone conversion
-3. Displays as `YYYY-MM-DD` format (e.g., `2024-01-01`) without any timezone shift
+2. Formats them using **UTC methods**: `getUTCFullYear()`, `getUTCMonth()`, `getUTCDate()`
+3. Displays as `YYYY-MM-DD` format without any timezone conversion
 
 ### Code Changes
 
@@ -52,11 +58,12 @@ cells: (row, col) => {
   // Check if this cell contains a Date object and format it properly
   if (cellData instanceof Date && !isNaN(cellData.getTime())) {
     cellProperties.renderer = function(instance: any, td: HTMLTableCellElement, row: number, col: number, prop: any, value: any, cellProperties: any) {
-      // Format date as YYYY-MM-DD using local date components to avoid timezone shift
+      // Format date as YYYY-MM-DD using UTC components to match Excel's date storage
+      // Excel dates are stored as day counts from epoch, converted to UTC by xlsx library
       if (value instanceof Date && !isNaN(value.getTime())) {
-        const year = value.getFullYear();
-        const month = String(value.getMonth() + 1).padStart(2, '0');
-        const day = String(value.getDate()).padStart(2, '0');
+        const year = value.getUTCFullYear();
+        const month = String(value.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(value.getUTCDate()).padStart(2, '0');
         const dateStr = `${year}-${month}-${day}`;
         td.textContent = dateStr;
       } else {
@@ -69,6 +76,8 @@ cells: (row, col) => {
   // ... rest of styling logic
 }
 ```
+
+**Key Change**: Using `getUTCFullYear()`, `getUTCMonth()`, `getUTCDate()` instead of local methods.
 
 ## Impact
 
