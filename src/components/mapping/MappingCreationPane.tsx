@@ -29,6 +29,7 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
   const [tagsInput, setTagsInput] = useState('');
   const [selectedSchemaId, setSelectedSchemaId] = useState('');
   const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   const selectedSchema = schemas.find(s => s.id === selectedSchemaId);
   const isEditMode = !!existingMapping;
@@ -37,51 +38,82 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
   // Storage key for draft state
   const DRAFT_STORAGE_KEY = 'mapping-creation-draft';
   
-  // Helper function to save draft
-  const saveDraft = useCallback(() => {
+  // Helper function to save draft IMMEDIATELY (synchronous)
+  const saveDraftImmediately = useCallback((draftData: {
+    mappingName: string;
+    description: string;
+    tagsInput: string;
+    selectedSchemaId: string;
+    fieldMappings: FieldMapping[];
+  }) => {
     // Don't save draft if editing existing mapping or using template
     if (isEditMode || isTemplateMode) return;
     
-    const draft = {
+    try {
+      const draft = {
+        ...draftData,
+        timestamp: Date.now(),
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      };
+      
+      // Only save if there's actual content
+      if (draftData.mappingName || draftData.description || draftData.selectedSchemaId || 
+          draftData.fieldMappings.some(fm => fm.formula)) {
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+        setLastSaved(new Date());
+        console.log('✅ Draft saved:', new Date().toLocaleTimeString());
+      }
+    } catch (error) {
+      console.error('❌ Failed to save draft:', error);
+    }
+  }, [isEditMode, isTemplateMode]);
+  
+  // Save draft IMMEDIATELY on every change
+  useEffect(() => {
+    saveDraftImmediately({
       mappingName,
       description,
       tagsInput,
       selectedSchemaId,
       fieldMappings,
-      timestamp: Date.now(),
-    };
-    
-    // Only save if there's actual content
-    if (mappingName || description || selectedSchemaId || fieldMappings.some(fm => fm.formula)) {
-      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
-    }
-  }, [mappingName, description, tagsInput, selectedSchemaId, fieldMappings, isEditMode, isTemplateMode]);
+    });
+  }, [mappingName, description, tagsInput, selectedSchemaId, fieldMappings, saveDraftImmediately]);
   
-  // Save draft to localStorage whenever state changes
+  // Save draft on tab switch (visibilitychange event)
   useEffect(() => {
-    saveDraft();
-  }, [saveDraft]);
-  
-  // Save draft before tab/window closes or switches
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      saveDraft();
-    };
-    
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        saveDraft();
+        console.log('🔄 Tab switched - saving draft');
+        saveDraftImmediately({
+          mappingName,
+          description,
+          tagsInput,
+          selectedSchemaId,
+          fieldMappings,
+        });
       }
     };
     
-    window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [mappingName, description, tagsInput, selectedSchemaId, fieldMappings, saveDraftImmediately]);
+  
+  // Save draft before browser close/refresh (beforeunload event)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      console.log('💾 Page unloading - saving draft');
+      saveDraftImmediately({
+        mappingName,
+        description,
+        tagsInput,
+        selectedSchemaId,
+        fieldMappings,
+      });
     };
-  }, [saveDraft]);
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [mappingName, description, tagsInput, selectedSchemaId, fieldMappings, saveDraftImmediately]);
   
   // Restore draft on component mount
   useEffect(() => {
@@ -447,14 +479,22 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
-        <CardTitle>
-          {isEditMode 
-            ? 'Edit Mapping' 
-            : isTemplateMode 
-              ? 'Create from Template'
-              : 'Create Mapping'
-          }
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>
+            {isEditMode 
+              ? 'Edit Mapping' 
+              : isTemplateMode 
+                ? 'Create from Template'
+                : 'Create Mapping'
+            }
+          </CardTitle>
+          {!isEditMode && !isTemplateMode && lastSaved && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Save className="h-3 w-3" />
+              <span>Draft saved at {lastSaved.toLocaleTimeString()}</span>
+            </div>
+          )}
+        </div>
       </CardHeader>
       
       <CardContent className="flex-1 flex flex-col overflow-hidden">
