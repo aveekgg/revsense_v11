@@ -118,15 +118,26 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
   
   // Restore draft on component mount
   useEffect(() => {
+    console.log('🔄 MappingCreationPane mounted - checking for draft');
+    console.log('   isEditMode:', isEditMode, 'isTemplateMode:', isTemplateMode);
+    
     // Only restore if not editing and not template mode
-    if (isEditMode || isTemplateMode) return;
+    if (isEditMode || isTemplateMode) {
+      console.log('   ⏭️  Skipping draft restore (edit or template mode)');
+      return;
+    }
     
     const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+    console.log('   Draft in localStorage:', savedDraft ? 'YES' : 'NO');
+    
     if (savedDraft) {
       try {
         const draft = JSON.parse(savedDraft);
-        // Only restore if draft is less than 24 hours old
         const age = Date.now() - draft.timestamp;
+        console.log('   Draft age:', Math.round(age / 1000 / 60), 'minutes');
+        console.log('   Draft field mappings count:', draft.fieldMappings?.length || 0);
+        
+        // Only restore if draft is less than 24 hours old
         if (age < 24 * 60 * 60 * 1000) {
           // IMPORTANT: Set draftRestored FIRST to prevent race condition
           setDraftRestored(true);
@@ -140,22 +151,33 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
           if (draft.fieldMappings && draft.fieldMappings.length > 0) {
             setFieldMappings(draft.fieldMappings);
             console.log('📋 Draft restored with field mappings:', draft.fieldMappings.length);
+            console.log('   Sample formula from first mapping:', draft.fieldMappings[0]?.formula || 'NONE');
+          } else {
+            console.log('   ⚠️  No field mappings in draft to restore');
           }
           
           // Set schema LAST so the useEffect sees draftRestored=true
           if (draft.selectedSchemaId) {
             setSelectedSchemaId(draft.selectedSchemaId);
+            console.log('   Restored schema ID:', draft.selectedSchemaId);
           }
           
           toast({
             title: "Draft Restored",
             description: "Your previous mapping work has been restored.",
           });
+        } else {
+          console.log('   ⏰ Draft expired (older than 24 hours)');
         }
       } catch (error) {
-        console.error('Failed to restore draft:', error);
+        console.error('❌ Failed to restore draft:', error);
       }
     }
+    
+    // Cleanup function to log unmount
+    return () => {
+      console.log('🔴 MappingCreationPane unmounting');
+    };
   }, []); // Run only once on mount
   
   // Clear draft when successfully saved
