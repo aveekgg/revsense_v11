@@ -33,6 +33,63 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
   const selectedSchema = schemas.find(s => s.id === selectedSchemaId);
   const isEditMode = !!existingMapping;
   const isTemplateMode = !!templateMapping;
+  
+  // Storage key for draft state
+  const DRAFT_STORAGE_KEY = 'mapping-creation-draft';
+  
+  // Save draft to localStorage whenever state changes (debounced)
+  useEffect(() => {
+    // Don't save draft if editing existing mapping or using template
+    if (isEditMode || isTemplateMode) return;
+    
+    const draft = {
+      mappingName,
+      description,
+      tagsInput,
+      selectedSchemaId,
+      fieldMappings,
+      timestamp: Date.now(),
+    };
+    
+    // Only save if there's actual content
+    if (mappingName || description || selectedSchemaId || fieldMappings.some(fm => fm.formula)) {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+    }
+  }, [mappingName, description, tagsInput, selectedSchemaId, fieldMappings, isEditMode, isTemplateMode]);
+  
+  // Restore draft on component mount
+  useEffect(() => {
+    // Only restore if not editing and not template mode
+    if (isEditMode || isTemplateMode) return;
+    
+    const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        // Only restore if draft is less than 24 hours old
+        const age = Date.now() - draft.timestamp;
+        if (age < 24 * 60 * 60 * 1000) {
+          setMappingName(draft.mappingName || '');
+          setDescription(draft.description || '');
+          setTagsInput(draft.tagsInput || '');
+          setSelectedSchemaId(draft.selectedSchemaId || '');
+          setFieldMappings(draft.fieldMappings || []);
+          
+          toast({
+            title: "Draft Restored",
+            description: "Your previous mapping work has been restored.",
+          });
+        }
+      } catch (error) {
+        console.error('Failed to restore draft:', error);
+      }
+    }
+  }, []); // Run only once on mount
+  
+  // Clear draft when successfully saved
+  const clearDraft = () => {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+  };
 
   // Load existing mapping data for editing
   useEffect(() => {
@@ -319,6 +376,7 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
       } else {
         // Template mode and create mode both save as new
         onSave(mappingName, description, tags, selectedSchemaId, validMappings);
+        clearDraft(); // Clear draft after successful save
       }
     } else {
       // All formulas already validated
@@ -330,6 +388,8 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
       } else {
         // Template mode and create mode both save as new
         onSave(mappingName, description, tags, selectedSchemaId, validMappings);
+        clearDraft(); // Clear draft after successful save
+      }
         
         toast({
           title: "Mapping saved",

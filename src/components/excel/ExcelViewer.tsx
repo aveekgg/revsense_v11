@@ -173,8 +173,8 @@ const ExcelViewer = () => {
         )}
       </CardHeader>
       
-      <CardContent className="flex-1 overflow-auto p-4">
-        <div ref={containerRef} className="w-full h-[600px]" />
+      <CardContent className="flex-1 overflow-auto p-4" style={{ overscrollBehavior: 'contain' }}>
+        <div ref={containerRef} className="w-full h-[600px]" style={{ overscrollBehavior: 'contain' }} />
       </CardContent>
       
       {/* Hover Tooltip */}

@@ -129,6 +129,12 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    overscroll-behavior-x: none; /* Prevent swipe-to-navigate on Mac trackpads */
+  }
+  
+  /* Prevent horizontal scroll from triggering browser navigation */
+  html {
+    overscroll-behavior-x: none;
   }
 }
 
