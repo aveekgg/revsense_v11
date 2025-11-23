@@ -67,6 +67,22 @@ interface ExcelContextType {
   loadRecentUpload: (upload: RecentUpload) => void;
   refreshMappings: () => void;
   addFieldFromFormula: (formula: string, name?: string) => void;
+
+  // Mapping Creation Draft (Advanced Mapping UI)
+  mappingDraft: {
+    mappingName: string;
+    description: string;
+    tagsInput: string;
+    selectedSchemaId: string;
+    fieldMappings: FieldMapping[];
+  };
+  setMappingDraft: (draft: {
+    mappingName: string;
+    description: string;
+    tagsInput: string;
+    selectedSchemaId: string;
+    fieldMappings: FieldMapping[];
+  }) => void;
 }
 
 const ExcelContext = createContext<ExcelContextType | undefined>(undefined);
@@ -79,6 +95,19 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isUploading, setIsUploading] = useState(false);
   const [recentUploads, setRecentUploads] = useState<RecentUpload[]>([]);
   const [loadedMappingForEdit, setLoadedMappingForEdit] = useState<SavedMappingType | null>(null);
+  const [mappingDraft, setMappingDraftState] = useState<{
+    mappingName: string;
+    description: string;
+    tagsInput: string;
+    selectedSchemaId: string;
+    fieldMappings: FieldMapping[];
+  }>({
+    mappingName: '',
+    description: '',
+    tagsInput: '',
+    selectedSchemaId: '',
+    fieldMappings: [],
+  });
   
   // Use Supabase hooks for data management
   const { 
@@ -289,6 +318,17 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const refreshMappings = useCallback(() => {
     // Mappings are automatically refreshed via react-query
+  }, []);
+
+  // Mapping creation draft setter helper
+  const setMappingDraft = useCallback((draft: {
+    mappingName: string;
+    description: string;
+    tagsInput: string;
+    selectedSchemaId: string;
+    fieldMappings: FieldMapping[];
+  }) => {
+    setMappingDraftState(draft);
   }, []);
 
   // Schema Management Functions
@@ -667,6 +707,8 @@ export const ExcelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         loadRecentUpload,
         refreshMappings,
         addFieldFromFormula,
+        mappingDraft,
+        setMappingDraft,
       }}
     >
       {children}

@@ -12,6 +12,7 @@ import { Save, AlertCircle } from 'lucide-react';
 import FieldMappingRow from './FieldMappingRow';
 import { computeFormula, parseExcelFormula } from '@/lib/formulaComputer';
 import { toast } from '@/hooks/use-toast';
+import { useExcel } from '@/contexts/ExcelContext';
 
 interface MappingCreationPaneProps {
   schemas: Schema[];
@@ -24,11 +25,13 @@ interface MappingCreationPaneProps {
 }
 
 const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateMapping, onSave, onUpdate, onCancel }: MappingCreationPaneProps) => {
-  const [mappingName, setMappingName] = useState('');
-  const [description, setDescription] = useState('');
-  const [tagsInput, setTagsInput] = useState('');
-  const [selectedSchemaId, setSelectedSchemaId] = useState('');
-  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>([]);
+  const { mappingDraft, setMappingDraft } = useExcel();
+
+  const [mappingName, setMappingName] = useState(mappingDraft.mappingName || '');
+  const [description, setDescription] = useState(mappingDraft.description || '');
+  const [tagsInput, setTagsInput] = useState(mappingDraft.tagsInput || '');
+  const [selectedSchemaId, setSelectedSchemaId] = useState(mappingDraft.selectedSchemaId || '');
+  const [fieldMappings, setFieldMappings] = useState<FieldMapping[]>(mappingDraft.fieldMappings || []);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
 
@@ -36,154 +39,42 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
   const isEditMode = !!existingMapping;
   const isTemplateMode = !!templateMapping;
   
-  // Storage key for draft state
-  const DRAFT_STORAGE_KEY = 'mapping-creation-draft';
-  
-  // Helper function to save draft IMMEDIATELY (synchronous)
-  const saveDraftImmediately = useCallback((draftData: {
-    mappingName: string;
-    description: string;
-    tagsInput: string;
-    selectedSchemaId: string;
-    fieldMappings: FieldMapping[];
-  }) => {
-    // Don't save draft if editing existing mapping or using template
-    if (isEditMode || isTemplateMode) return;
-    
-    try {
-      const draft = {
-        ...draftData,
-        timestamp: Date.now(),
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
-      };
-      
-      // Only save if there's actual content
-      if (draftData.mappingName || draftData.description || draftData.selectedSchemaId || 
-          draftData.fieldMappings.some(fm => fm.formula)) {
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
-        setLastSaved(new Date());
-        console.log('✅ Draft saved:', new Date().toLocaleTimeString());
-      }
-    } catch (error) {
-      console.error('❌ Failed to save draft:', error);
-    }
-  }, [isEditMode, isTemplateMode]);
-  
-  // Save draft IMMEDIATELY on every change
+  // Sync local state with context draft whenever it changes (and not editing/template)
   useEffect(() => {
-    saveDraftImmediately({
+    if (isEditMode || isTemplateMode) return;
+
+    setMappingDraft({
       mappingName,
       description,
       tagsInput,
       selectedSchemaId,
       fieldMappings,
     });
-  }, [mappingName, description, tagsInput, selectedSchemaId, fieldMappings, saveDraftImmediately]);
-  
-  // Save draft on tab switch (visibilitychange event)
+    setLastSaved(new Date());
+  }, [mappingName, description, tagsInput, selectedSchemaId, fieldMappings, isEditMode, isTemplateMode, setMappingDraft]);
+
+  // Initialize from context draft on mount if present (and not in edit/template mode)
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        console.log('🔄 Tab switched - saving draft');
-        saveDraftImmediately({
-          mappingName,
-          description,
-          tagsInput,
-          selectedSchemaId,
-          fieldMappings,
-        });
-      }
-    };
-    
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [mappingName, description, tagsInput, selectedSchemaId, fieldMappings, saveDraftImmediately]);
-  
-  // Save draft before browser close/refresh (beforeunload event)
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      console.log('💾 Page unloading - saving draft');
-      saveDraftImmediately({
-        mappingName,
-        description,
-        tagsInput,
-        selectedSchemaId,
-        fieldMappings,
-      });
-    };
-    
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [mappingName, description, tagsInput, selectedSchemaId, fieldMappings, saveDraftImmediately]);
-  
-  // Restore draft on component mount
-  useEffect(() => {
-    console.log('🔄 MappingCreationPane mounted - checking for draft');
-    console.log('   isEditMode:', isEditMode, 'isTemplateMode:', isTemplateMode);
-    
-    // Only restore if not editing and not template mode
-    if (isEditMode || isTemplateMode) {
-      console.log('   ⏭️  Skipping draft restore (edit or template mode)');
-      return;
-    }
-    
-    const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
-    console.log('   Draft in localStorage:', savedDraft ? 'YES' : 'NO');
-    
-    if (savedDraft) {
-      try {
-        const draft = JSON.parse(savedDraft);
-        const age = Date.now() - draft.timestamp;
-        console.log('   Draft age:', Math.round(age / 1000 / 60), 'minutes');
-        console.log('   Draft field mappings count:', draft.fieldMappings?.length || 0);
-        
-        // Only restore if draft is less than 24 hours old
-        if (age < 24 * 60 * 60 * 1000) {
-          // IMPORTANT: Set draftRestored FIRST to prevent race condition
-          setDraftRestored(true);
-          
-          // Then restore all the data
-          setMappingName(draft.mappingName || '');
-          setDescription(draft.description || '');
-          setTagsInput(draft.tagsInput || '');
-          
-          // Restore field mappings BEFORE setting schema to avoid initialization race
-          if (draft.fieldMappings && draft.fieldMappings.length > 0) {
-            setFieldMappings(draft.fieldMappings);
-            console.log('📋 Draft restored with field mappings:', draft.fieldMappings.length);
-            console.log('   Sample formula from first mapping:', draft.fieldMappings[0]?.formula || 'NONE');
-          } else {
-            console.log('   ⚠️  No field mappings in draft to restore');
-          }
-          
-          // Set schema LAST so the useEffect sees draftRestored=true
-          if (draft.selectedSchemaId) {
-            setSelectedSchemaId(draft.selectedSchemaId);
-            console.log('   Restored schema ID:', draft.selectedSchemaId);
-          }
-          
-          toast({
-            title: "Draft Restored",
-            description: "Your previous mapping work has been restored.",
-          });
-        } else {
-          console.log('   ⏰ Draft expired (older than 24 hours)');
-        }
-      } catch (error) {
-        console.error('❌ Failed to restore draft:', error);
+    if (isEditMode || isTemplateMode) return;
+
+    if (
+      mappingDraft.mappingName ||
+      mappingDraft.description ||
+      mappingDraft.tagsInput ||
+      mappingDraft.selectedSchemaId ||
+      (mappingDraft.fieldMappings && mappingDraft.fieldMappings.length > 0)
+    ) {
+      setDraftRestored(true);
+      setMappingName(mappingDraft.mappingName || '');
+      setDescription(mappingDraft.description || '');
+      setTagsInput(mappingDraft.tagsInput || '');
+      setSelectedSchemaId(mappingDraft.selectedSchemaId || '');
+      if (mappingDraft.fieldMappings && mappingDraft.fieldMappings.length > 0) {
+        setFieldMappings(mappingDraft.fieldMappings);
       }
     }
-    
-    // Cleanup function to log unmount
-    return () => {
-      console.log('🔴 MappingCreationPane unmounting');
-    };
-  }, []); // Run only once on mount
-  
-  // Clear draft when successfully saved
-  const clearDraft = () => {
-    localStorage.removeItem(DRAFT_STORAGE_KEY);
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Handle schema selection change
   const handleSchemaChange = (schemaId: string) => {
@@ -347,17 +238,7 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
       
       setFieldMappings(updatedMappings);
       
-      // Immediately save to localStorage after evaluation
-      if (!isEditMode && !isTemplateMode) {
-        console.log('💾 Saving draft after formula evaluation with', updatedMappings.length, 'field mappings');
-        saveDraftImmediately({
-          mappingName,
-          description,
-          tagsInput,
-          selectedSchemaId,
-          fieldMappings: updatedMappings,
-        });
-      }
+      // Context draft sync effect will pick up this change
 
       if (value !== null && value !== undefined) {
         toast({
@@ -379,17 +260,7 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
       
       setFieldMappings(updatedMappings);
       
-      // Immediately save to localStorage even on error
-      if (!isEditMode && !isTemplateMode) {
-        console.log('💾 Saving draft after formula error with', updatedMappings.length, 'field mappings');
-        saveDraftImmediately({
-          mappingName,
-          description,
-          tagsInput,
-          selectedSchemaId,
-          fieldMappings: updatedMappings,
-        });
-      }
+      // Context draft sync effect will pick up this change
     }
   };
 
@@ -521,7 +392,16 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
       } else {
         // Template mode and create mode both save as new
         onSave(mappingName, description, tags, selectedSchemaId, validMappings);
-        clearDraft(); // Clear draft after successful save
+        // Clear draft in context after successful save
+        if (!isEditMode && !isTemplateMode) {
+          setMappingDraft({
+            mappingName: '',
+            description: '',
+            tagsInput: '',
+            selectedSchemaId: '',
+            fieldMappings: [],
+          });
+        }
       }
     } else {
       // All formulas already validated
@@ -533,7 +413,16 @@ const MappingCreationPane = ({ schemas, workbookData, existingMapping, templateM
       } else {
         // Template mode and create mode both save as new
         onSave(mappingName, description, tags, selectedSchemaId, validMappings);
-        clearDraft(); // Clear draft after successful save
+        // Clear draft in context after successful save
+        if (!isEditMode && !isTemplateMode) {
+          setMappingDraft({
+            mappingName: '',
+            description: '',
+            tagsInput: '',
+            selectedSchemaId: '',
+            fieldMappings: [],
+          });
+        }
       }
     }
     
