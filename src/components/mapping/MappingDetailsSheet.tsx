@@ -1,4 +1,5 @@
-import { SavedMapping, Schema } from "@/types/excel";
+import { SavedMapping, Schema, FieldMapping } from "@/types/excel";
+import { useState, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -10,16 +11,105 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, FileSpreadsheet, Database, Code } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar, FileSpreadsheet, Database, Code, Edit2, Save, X } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 interface MappingDetailsSheetProps {
   mapping: SavedMapping | null;
   schema: Schema | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onUpdate?: (id: string, name: string, description: string, tags: string[], schemaId: string, fieldMappings: FieldMapping[]) => Promise<void>;
 }
 
-const MappingDetailsSheet = ({ mapping, schema, open, onOpenChange }: MappingDetailsSheetProps) => {
+const MappingDetailsSheet = ({ mapping, schema, open, onOpenChange, onUpdate }: MappingDetailsSheetProps) => {
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [editedDescription, setEditedDescription] = useState("");
+  const [editedTags, setEditedTags] = useState("");
+  const [editedFieldMappings, setEditedFieldMappings] = useState<FieldMapping[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Reset state when mapping changes or sheet closes
+  useEffect(() => {
+    if (mapping) {
+      setEditedName(mapping.name);
+      setEditedDescription(mapping.description || "");
+      setEditedTags(mapping.tags.join(", "));
+      setEditedFieldMappings(mapping.fieldMappings || []);
+      setIsEditMode(false);
+    }
+  }, [mapping, open]);
+
+  if (!mapping) return null;
+
+  const handleEditMode = () => {
+    setIsEditMode(true);
+  };
+
+  const handleCancelEdit = () => {
+    // Restore original values
+    setEditedName(mapping.name);
+    setEditedDescription(mapping.description || "");
+    setEditedTags(mapping.tags.join(", "));
+    setEditedFieldMappings(mapping.fieldMappings || []);
+    setIsEditMode(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!onUpdate || !schema) {
+      toast({
+        title: "Update not available",
+        description: "Update functionality is not configured.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!editedName.trim()) {
+      toast({
+        title: "Name required",
+        description: "Mapping name cannot be empty.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const tags = editedTags.split(',').map(t => t.trim()).filter(Boolean);
+      await onUpdate(mapping.id, editedName, editedDescription, tags, mapping.schemaId, editedFieldMappings);
+      
+      toast({
+        title: "Mapping updated",
+        description: "Your changes have been saved successfully.",
+      });
+      setIsEditMode(false);
+    } catch (error) {
+      console.error('Failed to update mapping:', error);
+      toast({
+        title: "Update failed",
+        description: error instanceof Error ? error.message : "Failed to update mapping.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateFieldFormula = (fieldId: string, newFormula: string) => {
+    setEditedFieldMappings(prev => 
+      prev.map(fm => 
+        fm.schemaFieldId === fieldId 
+          ? { ...fm, formula: newFormula }
+          : fm
+      )
+    );
+  };
+
   if (!mapping) return null;
 
   return (
@@ -28,11 +118,60 @@ const MappingDetailsSheet = ({ mapping, schema, open, onOpenChange }: MappingDet
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <FileSpreadsheet className="h-5 w-5" />
-            {mapping.name}
+            {isEditMode ? (
+              <Input
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                className="flex-1"
+                placeholder="Mapping name"
+              />
+            ) : (
+              mapping.name
+            )}
           </SheetTitle>
           <SheetDescription>
-            {mapping.description || "No description provided"}
+            {isEditMode ? (
+              <Textarea
+                value={editedDescription}
+                onChange={(e) => setEditedDescription(e.target.value)}
+                placeholder="Mapping description"
+                rows={2}
+                className="mt-2"
+              />
+            ) : (
+              mapping.description || "No description provided"
+            )}
           </SheetDescription>
+          <div className="flex gap-2 pt-2">
+            {isEditMode ? (
+              <>
+                <Button 
+                  size="sm" 
+                  onClick={handleSaveEdit}
+                  disabled={isSaving}
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {isSaving ? "Saving..." : "Save Changes"}
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={handleCancelEdit}
+                  disabled={isSaving}
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              onUpdate && (
+                <Button size="sm" variant="outline" onClick={handleEditMode}>
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Edit Mapping
+                </Button>
+              )
+            )}
+          </div>
         </SheetHeader>
 
         <ScrollArea className="h-[calc(100vh-8rem)] pr-4 mt-6">
@@ -75,15 +214,29 @@ const MappingDetailsSheet = ({ mapping, schema, open, onOpenChange }: MappingDet
                   </div>
                 )}
 
-                {mapping.tags && mapping.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 pt-2">
-                    {mapping.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+                <div className="pt-2">
+                  <span className="text-sm font-medium">Tags:</span>
+                  {isEditMode ? (
+                    <Input
+                      value={editedTags}
+                      onChange={(e) => setEditedTags(e.target.value)}
+                      placeholder="Enter tags separated by commas"
+                      className="mt-2"
+                    />
+                  ) : (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {mapping.tags && mapping.tags.length > 0 ? (
+                        mapping.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-sm text-muted-foreground">No tags</span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -92,12 +245,13 @@ const MappingDetailsSheet = ({ mapping, schema, open, onOpenChange }: MappingDet
               <CardHeader>
                 <CardTitle className="text-sm">Field Mappings</CardTitle>
                 <CardDescription>
-                  {mapping.fieldMappings?.length || 0} fields mapped
+                  {(isEditMode ? editedFieldMappings : mapping.fieldMappings)?.length || 0} fields mapped
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {mapping.fieldMappings && mapping.fieldMappings.length > 0 ? (
-                  mapping.fieldMappings.map((fieldMapping, index) => {
+                {(isEditMode ? editedFieldMappings : mapping.fieldMappings) && 
+                 (isEditMode ? editedFieldMappings : mapping.fieldMappings).length > 0 ? (
+                  (isEditMode ? editedFieldMappings : mapping.fieldMappings).map((fieldMapping, index) => {
                     const schemaField = schema?.fields.find(f => f.id === fieldMapping.schemaFieldId);
                     
                     return (
@@ -130,12 +284,22 @@ const MappingDetailsSheet = ({ mapping, schema, open, onOpenChange }: MappingDet
                               <Code className="h-3 w-3 text-muted-foreground" />
                               <span className="text-xs font-medium">Formula:</span>
                             </div>
-                            <code className="text-xs text-foreground break-all">
-                              {fieldMapping.formula || "No formula"}
-                            </code>
+                            {isEditMode ? (
+                              <Textarea
+                                value={fieldMapping.formula || ""}
+                                onChange={(e) => handleUpdateFieldFormula(fieldMapping.schemaFieldId, e.target.value)}
+                                placeholder="Enter formula (e.g., A1, CONCAT(A1, B1))"
+                                className="font-mono text-xs"
+                                rows={2}
+                              />
+                            ) : (
+                              <code className="text-xs text-foreground break-all">
+                                {fieldMapping.formula || "No formula"}
+                              </code>
+                            )}
                           </div>
 
-                          {fieldMapping.cellReferences && fieldMapping.cellReferences.length > 0 && (
+                          {!isEditMode && fieldMapping.cellReferences && fieldMapping.cellReferences.length > 0 && (
                             <div className="text-xs">
                               <span className="font-medium">Cell References:</span>
                               <div className="flex flex-wrap gap-1 mt-1">

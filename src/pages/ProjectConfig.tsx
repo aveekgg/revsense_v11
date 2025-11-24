@@ -19,7 +19,20 @@ import { Schema, SavedMapping } from "@/types/excel";
 
 const ProjectConfig = () => {
   const navigate = useNavigate();
-  const { loadMapping, savedMappings, schemas, createSchema, updateSchemaById, deleteSchemaById, refreshSchemas, getMappingsForSchema, isSchemasLoading, isMappingsLoading } = useExcel();
+  const { 
+    loadMapping, 
+    savedMappings, 
+    schemas, 
+    createSchema, 
+    updateSchemaById, 
+    deleteSchemaById, 
+    refreshSchemas, 
+    getMappingsForSchema, 
+    isSchemasLoading, 
+    isMappingsLoading,
+    updateMappingById,
+    refreshMappings
+  } = useExcel();
   const [activeTab, setActiveTab] = useState("Schemas");
   const [schemaDialogOpen, setSchemaDialogOpen] = useState(false);
   const [jsonImportOpen, setJsonImportOpen] = useState(false);
@@ -110,6 +123,19 @@ const ProjectConfig = () => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleUpdateMapping = async (
+    id: string, 
+    name: string, 
+    description: string, 
+    tags: string[], 
+    schemaId: string, 
+    fieldMappings: any[]
+  ) => {
+    await updateMappingById(id, name, description, tags, schemaId, fieldMappings);
+    // Refresh mappings to get the updated data
+    await refreshMappings();
   };
 
   const getSchemaName = (schemaId: string) => {
@@ -334,6 +360,7 @@ const ProjectConfig = () => {
         schema={viewingMapping ? schemas.find(s => s.id === viewingMapping.schemaId) || null : null}
         open={mappingDetailsOpen}
         onOpenChange={setMappingDetailsOpen}
+        onUpdate={handleUpdateMapping}
       />
     </div>
   );
