@@ -10,6 +10,7 @@ export interface CanonicalRow {
   metric_label: string;
   metric_type: 'absolute' | 'percentage';
   metric_value: number;
+  reporting_currency?: string; // Currency code (e.g., 'USD', 'INR') for currency metrics
   [key: string]: any;
 }
 
@@ -68,7 +69,7 @@ export function CanonicalDataTable({ data, viewMode = 'pivot' }: CanonicalDataTa
   };
 
   // Format value based on metric type
-  const formatValue = (value: number, metricType: string, metricName: string): string | number => {
+  const formatValue = (value: number, metricType: string, metricName: string, currency?: string): string | number => {
     if (metricType === 'percentage') {
       return formatPercentage(value);
     }
@@ -79,7 +80,7 @@ export function CanonicalDataTable({ data, viewMode = 'pivot' }: CanonicalDataTa
         lowerMetricName.includes('price') || 
         lowerMetricName.includes('cost') ||
         lowerMetricName.includes('adr')) {
-      return formatCurrency(value);
+      return formatCurrency(value, currency || 'USD');
     }
     
     return formatNumber(value);
@@ -122,7 +123,8 @@ export function CanonicalDataTable({ data, viewMode = 'pivot' }: CanonicalDataTa
         rowData[columnName] = formatValue(
           matchingRow.metric_value, 
           matchingRow.metric_type,
-          matchingRow.metric_name
+          matchingRow.metric_name,
+          matchingRow.reporting_currency
         );
       } else {
         const columnName = `${combo.entity} - ${combo.label}`;

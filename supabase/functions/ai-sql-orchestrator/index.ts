@@ -22,6 +22,7 @@ interface CanonicalRow {
   metric_label: string;  // human friendly label
   metric_type: 'absolute' | 'percentage';
   metric_value: number;  // percentages always 0-100 range
+  reporting_currency?: string; // currency code (e.g., 'USD', 'INR') for currency metrics
   [key: string]: any;    // allow extra dimensions if needed
 }
 
@@ -334,6 +335,7 @@ Each row must represent one (period, entity, metric) combination with the follow
 - metric_label (text)             -- human label from metrics[].label
 - metric_type (text)              -- 'absolute' or 'percentage' from metrics[].type
 - metric_value (numeric)          -- numeric value; for percentage metrics this MUST be 0-100 range (not 0-1)
+- reporting_currency (text)       -- OPTIONAL: currency code (e.g., 'USD', 'INR') if the source table has a reporting_currency column; include this for ALL currency-related metrics
 
 AVAILABLE TABLES & COLUMNS:
 ${validTables.map(table => `
@@ -353,30 +355,31 @@ ${JSON.stringify(cleanIntent, null, 2)}
 
 RULES (STRICTLY FOLLOW):
 1. Do NOT pivot into separate columns per entity or metric. Always return multiple rows with the canonical columns listed above.
-2. The SQL MUST select columns with these exact aliases: period, period_grain, entity_name, metric_name, metric_label, metric_type, metric_value.
-3. Time grain:
+2. The SQL MUST select columns with these exact aliases: period, period_grain, entity_name, metric_name, metric_label, metric_type, metric_value, and optionally reporting_currency.
+3. If the source table has a reporting_currency column, include it in the SELECT for ALL metrics (currency and non-currency). If the table doesn't have this column, omit it entirely.
+4. Time grain:
    - time.grain is one of month, quarter, half_year, year.
    - Minimum grain is month (never day, never week).
    - For month: period = date_trunc('month', <date_col>)::date.
    - For quarter: period = date_trunc('quarter', <date_col>)::date.
    - For half_year: derive first day of H1/H2 (you may use CASE around month extracted from date_trunc('month', ...)).
    - For year: period = date_trunc('year', <date_col>)::date.
-4. Period filtering:
+5. Period filtering:
    - If time.lookback_periods is provided, filter the last N periods of the given grain relative to current_date.
    - If start_period/end_period are provided, filter between them.
-5. Grouping:
+6. Grouping:
    - Aggregate at the chosen time grain and by entity (e.g., GROUP BY period, entity_name).
-6. Metric computation:
+7. Metric computation:
    - For each metric in metrics[]:
      - If type = 'absolute', metric_value should be the aggregated numeric value.
      - If type = 'percentage', metric_value MUST be computed as (numerator / denominator) * 100 so the final number is in 0-100 range.
    - You may use a base CTE to compute reusable aggregates (total_revenue, fnb_revenue, etc.), then UNION ALL separate SELECTs per metric into the canonical schema.
-7. Sorting:
+8. Sorting:
    - ORDER BY period ASC, entity_name ASC, metric_name ASC.
-8. Table usage:
+9. Table usage:
    - Use only the exact table names listed above (e.g., FROM clean_hotel_revenue_data).
    - Do NOT use schema prefixes (no dots in table names).
-9. Do NOT include a trailing semicolon in the SQL string.
+10. Do NOT include a trailing semicolon in the SQL string.
 
 Return JSON only:
 {

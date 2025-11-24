@@ -10,6 +10,7 @@ export interface CanonicalRow {
   metric_label: string;  // human label
   metric_type: 'absolute' | 'percentage';
   metric_value: number;  // percentages already 0-100
+  reporting_currency?: string; // Currency code (e.g., 'USD', 'INR') for currency metrics
   [key: string]: any;    // allow extra dimensions if needed
 }
 
@@ -95,12 +96,21 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
     
     if (existing) {
       existing[key] = row.metric_value;
+      // Preserve currency for this series
+      if (row.reporting_currency) {
+        existing[`${key}_currency`] = row.reporting_currency;
+      }
     } else {
-      acc.push({
+      const newRow: any = {
         period: row.period,
         periodLabel: formatPeriodLabel(row.period),
         [key]: row.metric_value
-      });
+      };
+      // Preserve currency for this series
+      if (row.reporting_currency) {
+        newRow[`${key}_currency`] = row.reporting_currency;
+      }
+      acc.push(newRow);
     }
     return acc;
   }, [] as any[]);
@@ -110,10 +120,22 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
 
   const hasRightAxis = config.yAxes.some(ax => ax.id === 'right');
 
+  // Get currency for a given series from the data
+  const getCurrencyForSeries = (seriesId: string): string | undefined => {
+    // Check if any data point has currency for this series
+    for (const row of pivotedData) {
+      const currencyKey = `${seriesId}_currency`;
+      if (row[currencyKey]) {
+        return row[currencyKey];
+      }
+    }
+    return undefined;
+  };
+
   // Format axis values based on axis config
-  const formatAxisValue = (value: number, axis: AxisConfig): string => {
+  const formatAxisValue = (value: number, axis: AxisConfig, currency?: string): string => {
     if (axis.format === 'currency') {
-      return formatCurrency(value);
+      return formatCurrency(value, currency || 'USD');
     }
     if (axis.format === 'percentage') {
       return `${value.toFixed(axis.decimals ?? 1)}%`;
@@ -135,7 +157,8 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
     const axis = config.yAxes.find(ax => ax.id === series.yAxisId);
     if (!axis) return formatNumber(value);
 
-    return formatAxisValue(value, axis);
+    const currency = getCurrencyForSeries(seriesId);
+    return formatAxisValue(value, axis, currency);
   };
 
   return (
@@ -161,22 +184,33 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
             label={config.xLabel ? { value: config.xLabel, position: 'insideBottom', offset: -10 } : undefined}
           />
           
-          {config.yAxes.map(axis => (
-            <YAxis
-              key={axis.id}
-              yAxisId={axis.id}
-              orientation={axis.id === 'right' ? 'right' : 'left'}
-              label={axis.label ? { 
-                value: axis.label, 
-                angle: -90, 
-                position: axis.id === 'right' ? 'insideRight' : 'insideLeft',
-                style: { textAnchor: 'middle' }
-              } : undefined}
-              className="text-xs"
-              stroke="hsl(var(--muted-foreground))"
-              tickFormatter={(value) => formatAxisValue(value, axis)}
-            />
-          ))}
+          {config.yAxes.map(axis => {
+            // Get currency from the first series that uses this axis
+            const seriesForAxis = config.series.find(s => s.yAxisId === axis.id);
+            const axisSeriesKey = seriesForAxis 
+              ? (seriesForAxis.entity_name 
+                  ? `${seriesForAxis.entity_name}_${seriesForAxis.metric_name}`
+                  : seriesForAxis.metric_name)
+              : undefined;
+            const axisCurrency = axisSeriesKey ? getCurrencyForSeries(axisSeriesKey) : undefined;
+            
+            return (
+              <YAxis
+                key={axis.id}
+                yAxisId={axis.id}
+                orientation={axis.id === 'right' ? 'right' : 'left'}
+                label={axis.label ? { 
+                  value: axis.label, 
+                  angle: -90, 
+                  position: axis.id === 'right' ? 'insideRight' : 'insideLeft',
+                  style: { textAnchor: 'middle' }
+                } : undefined}
+                className="text-xs"
+                stroke="hsl(var(--muted-foreground))"
+                tickFormatter={(value) => formatAxisValue(value, axis, axisCurrency)}
+              />
+            );
+          })}
 
           {config.showTooltip && (
             <Tooltip 
