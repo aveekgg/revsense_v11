@@ -147,3 +147,21 @@ All colors MUST be HSL.
     @apply py-1.5 px-3 text-sm;
   }
 }
+
+/* Handsontable Grid Lines */
+.htCore td.htBordered,
+.htCore th.htBordered {
+  border-right: 1px solid hsl(var(--border)) !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+}
+
+.htCore table {
+  border-collapse: collapse;
+}
+
+/* Ensure grid lines are visible for all cells */
+.htCore .handsontable td,
+.htCore .handsontable th {
+  border-right: 1px solid hsl(var(--border));
+  border-bottom: 1px solid hsl(var(--border));
+}

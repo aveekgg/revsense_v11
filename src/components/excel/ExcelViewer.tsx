@@ -107,17 +107,32 @@ const ExcelViewer = () => {
             return td;
           };
         }
+        // Check if this cell contains a number and format it to 2 decimal places
+        else if (typeof cellData === 'number' && !isNaN(cellData)) {
+          cellProperties.renderer = function(instance: any, td: HTMLTableCellElement, row: number, col: number, prop: any, value: any, cellProperties: any) {
+            if (typeof value === 'number' && !isNaN(value)) {
+              // Format number to 2 decimal places
+              td.textContent = value.toFixed(2);
+            } else {
+              td.textContent = value !== null && value !== undefined ? String(value) : '';
+            }
+            return td;
+          };
+        }
         
-        // Apply text styles via className
+        // Apply text styles via className and add grid borders
+        const classNames: string[] = [];
         if (style) {
-          const classNames: string[] = [];
           if (style.bold) classNames.push('htBold');
           if (style.italic) classNames.push('htItalic');
           if (style.underline) classNames.push('htUnderline');
-          
-          if (classNames.length > 0) {
-            cellProperties.className = classNames.join(' ');
-          }
+        }
+        
+        // Always add border class for grid lines
+        classNames.push('htBordered');
+        
+        if (classNames.length > 0) {
+          cellProperties.className = classNames.join(' ');
         }
         
         return cellProperties;
