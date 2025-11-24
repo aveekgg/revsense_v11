@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { columnIndexToLetter } from '@/lib/excelParser';
 import Handsontable from 'handsontable';
-import 'handsontable/dist/handsontable.full.css';
+import 'handsontable/styles/handsontable.css';
+import 'handsontable/styles/ht-theme-main.css';
 import { toast } from '@/hooks/use-toast';
 
 const ExcelViewer = () => {
@@ -36,20 +37,21 @@ const ExcelViewer = () => {
       hotInstanceRef.current.destroy();
     }
 
-    // Initialize Handsontable
+    // Initialize Handsontable with Material theme
     hotInstanceRef.current = new Handsontable(containerRef.current, {
       data: sheetData,
       colHeaders: true,
       rowHeaders: true,
       width: '100%',
       height: 600,
-  // Default all columns to a fixed width so preview is consistent
-  colWidths: 100,
+      // Default all columns to a fixed width so preview is consistent
+      colWidths: 100,
       licenseKey: 'non-commercial-and-evaluation',
       stretchH: 'all',
       manualColumnResize: true,
       manualRowResize: true,
       contextMenu: false,
+      className: 'htCore',
       afterOnCellMouseOver: (event, coords) => {
         if (coords.row >= 0 && coords.col >= 0) {
           const cellRef = `${columnIndexToLetter(coords.col)}${coords.row + 1}`;
