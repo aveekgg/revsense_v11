@@ -47,6 +47,18 @@ export interface CellStyle {
     bottom?: boolean;
     left?: boolean;
   };
+  alignment?: {
+    horizontal?: 'left' | 'center' | 'right';
+    vertical?: 'top' | 'middle' | 'bottom';
+  };
+  fontSize?: number;
+}
+
+export interface MergedCell {
+  row: number;
+  col: number;
+  rowspan: number;
+  colspan: number;
 }
 
 export interface CellData {
@@ -60,6 +72,9 @@ export interface WorkbookData {
   sheetNames: string[];
   uploadDate: Date;
   cellStyles?: Record<string, Record<string, CellStyle>>; // sheetName -> cellRef -> style
+  mergedCells?: Record<string, MergedCell[]>; // sheetName -> array of merged cell ranges
+  hiddenRows?: Record<string, number[]>; // sheetName -> array of hidden row indices
+  hiddenColumns?: Record<string, number[]>; // sheetName -> array of hidden column indices
 }
 
 // Mapping between Schema and Workbook

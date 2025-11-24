@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useExcel } from '@/contexts/ExcelContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { columnIndexToLetter } from '@/lib/excelParser';
 import Handsontable from 'handsontable';
 import 'handsontable/styles/handsontable.css';
@@ -166,13 +167,16 @@ const ExcelViewer = () => {
         </div>
         {workbookData.sheetNames.length > 1 && (
           <Tabs value={selectedSheet} onValueChange={setSelectedSheet} className="mt-2">
-            <TabsList className="w-full justify-start">
-              {workbookData.sheetNames.map(name => (
-                <TabsTrigger key={name} value={name}>
-                  {name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+            <ScrollArea className="w-full whitespace-nowrap">
+              <TabsList className="inline-flex w-auto">
+                {workbookData.sheetNames.map(name => (
+                  <TabsTrigger key={name} value={name}>
+                    {name}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
           </Tabs>
         )}
       </CardHeader>
