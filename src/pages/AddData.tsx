@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Upload, FileSpreadsheet, Copy, Zap, Grid } from "lucide-react";
 import ExcelViewer from '@/components/excel/ExcelViewer';
 import MappingCreationPane from '@/components/mapping/MappingCreationPane';
+import MappingDetailsPane from '@/components/mapping/MappingDetailsPane';
 import MappingApplicationPane from '@/components/mapping/MappingApplicationPane';
 import BulkMappingPane from '@/components/mapping/BulkMappingPane';
 import { toast } from '@/hooks/use-toast';
@@ -31,12 +32,15 @@ const AddData = () => {
     loadedMappingForEdit,
     clearWorkbook,
     selectedSheet,
-    setSelectedSheet
+    setSelectedSheet,
+    mappingDraft,
+    setMappingDraft,
   } = useExcel();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedMappingId, setSelectedMappingId] = useState('');
   const [templateMapping, setTemplateMapping] = useState<typeof savedMappings[0] | null>(null);
   const [activeTab, setActiveTab] = useState<'advanced' | 'bulk'>('advanced');
+  const [advancedStep, setAdvancedStep] = useState<'details' | 'fields'>('details');
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -236,23 +240,46 @@ const AddData = () => {
                 </TabsList>
                 
                 <TabsContent value="advanced" className="mt-4">
-                  <MappingCreationPane
-                    schemas={schemas}
-                    workbookData={workbookData}
-                    existingMapping={loadedMappingForEdit}
-                    templateMapping={templateMapping}
-                    onSave={async (name, desc, tags, schemaId, mappings) => {
-                      await saveMappingNew(name, desc, tags, schemaId, mappings);
-                      setTemplateMapping(null);
-                    }}
-                    onUpdate={async (id, name, desc, tags, schemaId, mappings) => {
-                      await updateMappingById(id, name, desc, tags, schemaId, mappings);
-                    }}
-                    onCancel={() => {
-                      clearLoadedMapping();
-                      setTemplateMapping(null);
-                    }}
-                  />
+                  {advancedStep === 'details' ? (
+                    <MappingDetailsPane
+                      schemas={schemas}
+                      mappingName={mappingDraft.mappingName}
+                      description={mappingDraft.description}
+                      tagsInput={mappingDraft.tagsInput}
+                      selectedSchemaId={mappingDraft.selectedSchemaId}
+                      onChange={({ mappingName, description, tagsInput, selectedSchemaId }) => {
+                        setMappingDraft({
+                          mappingName,
+                          description,
+                          tagsInput,
+                          selectedSchemaId,
+                          fieldMappings: mappingDraft.fieldMappings,
+                        });
+                      }}
+                      onNext={() => setAdvancedStep('fields')}
+                    />
+                  ) : (
+                    <MappingCreationPane
+                      schemas={schemas}
+                      workbookData={workbookData}
+                      existingMapping={loadedMappingForEdit}
+                      templateMapping={templateMapping}
+                      onSave={async (name, desc, tags, schemaId, mappings) => {
+                        await saveMappingNew(name, desc, tags, schemaId, mappings);
+                        setTemplateMapping(null);
+                        setAdvancedStep('details');
+                      }}
+                      onUpdate={async (id, name, desc, tags, schemaId, mappings) => {
+                        await updateMappingById(id, name, desc, tags, schemaId, mappings);
+                        setAdvancedStep('details');
+                      }}
+                      onCancel={() => {
+                        clearLoadedMapping();
+                        setTemplateMapping(null);
+                        setAdvancedStep('details');
+                      }}
+                    />
+                  )}
                 </TabsContent>
                 
                 <TabsContent value="bulk" className="mt-4">
