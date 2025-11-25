@@ -253,7 +253,7 @@ Respond ONLY with JSON:
           { role: 'system', content: 'You are a query refinement expert. Always respond with valid JSON.' },
           { role: 'user', content: cleanIntentPrompt }
         ],
-        max_tokens: 800,
+        max_completion_tokens: 800,
         temperature: 0.2,
         response_format: { type: 'json_object' }
       }),
@@ -261,7 +261,7 @@ Respond ONLY with JSON:
 
     console.log('API Call - Stage 0: Calling OpenAI for intent extraction');
     console.log('API Call - Model:', 'gpt-5.1-2025-11-13');
-    console.log('API Call - Max Tokens:', 800);
+    console.log('API Call - Max Completion Tokens:', 800);
 
     const preprocessData = await preprocessResponse.json();
     
@@ -332,7 +332,7 @@ Respond with JSON:
           { role: 'system', content: 'You are a query classification expert. Always respond with valid JSON.' },
           { role: 'user', content: classificationPrompt }
         ],
-        max_tokens: 400,
+        max_completion_tokens: 400,
         temperature: 0.5,
         response_format: { type: 'json_object' }
       }),
@@ -340,7 +340,7 @@ Respond with JSON:
 
     console.log('API Call - Stage 1: Calling OpenAI for classification');
     console.log('API Call - Model:', 'gpt-4.1-2025-04-14');
-    console.log('API Call - Max Tokens:', 400);
+    console.log('API Call - Max Completion Tokens:', 400);
 
     const classificationData = await classificationResponse.json();
     
@@ -448,7 +448,7 @@ Return JSON only:
           { role: 'system', content: 'You are an expert SQL generator. Always respond with valid JSON.' },
           { role: 'user', content: sqlPrompt }
         ],
-        max_tokens: 2000,
+        max_completion_tokens: 2000,
         temperature: 0.25,
         response_format: { type: 'json_object' }
       }),
@@ -456,7 +456,7 @@ Return JSON only:
 
     console.log('API Call - Stage 2: Calling OpenAI for SQL generation');
     console.log('API Call - Model:', 'gpt-5.1-2025-11-13');
-    console.log('API Call - Max Tokens:', 2000);
+    console.log('API Call - Max Completion Tokens:', 2000);
 
     const sqlData = await sqlResponse.json();
     
@@ -530,7 +530,7 @@ Use business language and mention time range, entities, and key metrics. Respond
           { role: 'system', content: 'You are a data summarization expert. Always respond with valid JSON.' },
           { role: 'user', content: summaryPrompt }
         ],
-        max_tokens: 400,
+        max_completion_tokens: 400,
         temperature: 0.6,
         response_format: { type: 'json_object' }
       }),
@@ -538,7 +538,7 @@ Use business language and mention time range, entities, and key metrics. Respond
 
     console.log('API Call - Stage 4: Calling OpenAI for summary generation');
     console.log('API Call - Model:', 'gpt-5-nano-2025-08-07');
-    console.log('API Call - Max Tokens:', 400);
+    console.log('API Call - Max Completion Tokens:', 400);
 
     const summaryData = await summaryResponse.json();
     
