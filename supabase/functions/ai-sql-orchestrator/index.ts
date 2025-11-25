@@ -437,7 +437,7 @@ Return JSON only:
 
 Clean query: ${cleanQuery}
 SQL: ${sanitizedSql}
-Results (first 20 rows in canonical long format): ${JSON.stringify(safeQueryResult.slice(0, 20))}
+Results (first 50 rows in canonical long format): ${JSON.stringify(safeQueryResult.slice(0, 50))}
 
 Use business language and mention time range, entities, and key metrics. Respond as JSON:
 {
