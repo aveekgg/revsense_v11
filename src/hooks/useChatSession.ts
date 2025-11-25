@@ -107,6 +107,13 @@ export const useChatSession = (sessionId?: string) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('No session');
 
+      console.log('📡 Calling ai-sql-orchestrator edge function...');
+      console.log('📝 Request body:', {
+        userQuery: content,
+        sessionId: currentSessionId,
+        chatHistoryLength: messages.length,
+      });
+
       // Call AI orchestrator
       const { data, error } = await supabase.functions.invoke('ai-sql-orchestrator', {
         body: {
@@ -116,7 +123,14 @@ export const useChatSession = (sessionId?: string) => {
         },
       });
 
-      if (error) throw error;
+      console.log('📨 Edge function response:', { data, error });
+
+      if (error) {
+        console.error('❌ Edge function error:', error);
+        throw error;
+      }
+      
+      console.log('✅ Edge function success:', data);
       return data;
     },
     onMutate: async (content: string) => {
