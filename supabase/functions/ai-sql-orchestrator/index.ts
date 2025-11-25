@@ -530,22 +530,30 @@ Use business language and mention time range, entities, and key metrics. Respond
           { role: 'system', content: 'You are a data summarization expert. Always respond with valid JSON.' },
           { role: 'user', content: summaryPrompt }
         ],
-        max_completion_tokens: 400,
+        max_completion_tokens: 1000,
         response_format: { type: 'json_object' }
       }),
     });
 
     console.log('API Call - Stage 4: Calling OpenAI for summary generation');
     console.log('API Call - Model:', 'gpt-5-nano-2025-08-07');
-    console.log('API Call - Max Completion Tokens:', 400);
+    console.log('API Call - Max Completion Tokens:', 1000);
 
     const summaryData = await summaryResponse.json();
     
     console.log('Output - Stage 4: OpenAI Response received');
     console.log('Output - Has choices:', !!summaryData.choices);
+    console.log('Output - Finish reason:', summaryData.choices?.[0]?.finish_reason);
+    console.log('Output - Usage:', JSON.stringify(summaryData.usage));
     
     if (!summaryData.choices?.[0]?.message?.content) {
       console.error('ERROR - Stage 4: No content in response:', JSON.stringify(summaryData));
+      
+      // Check if it's a token limit issue
+      if (summaryData.choices?.[0]?.finish_reason === 'length') {
+        throw new Error(`Summary generation failed: Token limit exceeded. Used ${summaryData.usage?.completion_tokens} completion tokens. Try reducing the result set or increasing max_completion_tokens.`);
+      }
+      
       throw new Error(`Summary generation failed: ${JSON.stringify(summaryData)}`);
     }
     const summaryPayload = JSON.parse(summaryData.choices[0].message.content);
