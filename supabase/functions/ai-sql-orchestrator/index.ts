@@ -531,7 +531,6 @@ Use business language and mention time range, entities, and key metrics. Respond
           { role: 'user', content: summaryPrompt }
         ],
         max_completion_tokens: 400,
-        temperature: 0.6,
         response_format: { type: 'json_object' }
       }),
     });
