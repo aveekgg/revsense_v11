@@ -190,13 +190,21 @@ Please check the logs for more details.`;
       throw new Error('OPENAI_API_KEY environment variable not configured');
     }
 
+    console.log('========== STAGE 0: CLEAN INTENT EXTRACTION ==========');
+    console.log('Input - User Query:', userQuery);
+    console.log('Input - Session ID:', sessionId);
+    console.log('Input - Chat History Length:', chatHistory.length);
+
     // ========== Step 0: Clean intent (no pivot, canonical long output) ==========
-    const schemaSummary = validTables.map(table => `
+    const schemaSummary = validTables.map((table: any) => `
 Table: ${table.tableName}
 Schema: "${table.schemaName}" - ${table.schemaDescription || 'No description'}
 Columns: ${table.columns.map((c: any) => c.name).join(', ')}
 Sample Rows: ${JSON.stringify(table.sampleRows, null, 2)}
 `).join('\n');
+
+    console.log('Input - Schema Summary:', schemaSummary.substring(0, 500) + '...');
+    console.log('Input - Business Context Length:', businessContextMarkdown.length, 'characters');
 
     const cleanIntentPrompt = `You are a query refinement expert for a financial/hospitality data warehouse.
 
@@ -251,25 +259,49 @@ Respond ONLY with JSON:
       }),
     });
 
+    console.log('API Call - Stage 0: Calling OpenAI for intent extraction');
+    console.log('API Call - Model:', 'gpt-5.1-2025-11-13');
+    console.log('API Call - Max Tokens:', 800);
+
     const preprocessData = await preprocessResponse.json();
+    
+    console.log('Output - Stage 0: OpenAI Response received');
+    console.log('Output - Has choices:', !!preprocessData.choices);
+    console.log('Output - Choice count:', preprocessData.choices?.length || 0);
+    
     if (!preprocessData.choices?.[0]?.message?.content) {
+      console.error('ERROR - Stage 0: No content in response:', JSON.stringify(preprocessData));
       throw new Error(`Preprocessing failed: ${JSON.stringify(preprocessData)}`);
     }
 
     let rawContent = preprocessData.choices[0].message.content as string;
+    console.log('Output - Stage 0: Raw content length:', rawContent.length);
+    console.log('Output - Stage 0: Raw content preview:', rawContent.substring(0, 200));
+    
     rawContent = rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
     let cleanIntent: CleanIntent;
     try {
       cleanIntent = JSON.parse(rawContent);
+      console.log('Output - Stage 0: Successfully parsed clean intent');
+      console.log('Output - Stage 0: Clean Query:', cleanIntent.cleanQuery);
+      console.log('Output - Stage 0: Time Grain:', cleanIntent.time.grain);
+      console.log('Output - Stage 0: Entities:', cleanIntent.entities.join(', '));
+      console.log('Output - Stage 0: Metrics:', cleanIntent.metrics.map(m => m.name).join(', '));
     } catch (parseError: any) {
-      console.error('Failed to parse clean intent:', parseError);
+      console.error('ERROR - Stage 0: Failed to parse clean intent:', parseError);
+      console.error('ERROR - Stage 0: Raw content:', rawContent);
       const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error(`JSON parsing failed: ${parseError.message}`);
       cleanIntent = JSON.parse(jsonMatch[0]);
+      console.log('Output - Stage 0: Recovered clean intent from regex match');
     }
 
     const { cleanQuery, time, entities, metrics } = cleanIntent;
+
+    console.log('========== STAGE 1: QUERY CLASSIFICATION ==========');
+    console.log('Input - Stage 1: Clean Query:', cleanQuery);
+    console.log('Input - Stage 1: Available Schemas:', schemas?.length || 0);
 
     // Step 1: Classification (reuse existing logic, but with cleanQuery)
     const classificationPrompt = `You are a SQL query classifier.
@@ -306,13 +338,26 @@ Respond with JSON:
       }),
     });
 
+    console.log('API Call - Stage 1: Calling OpenAI for classification');
+    console.log('API Call - Model:', 'gpt-4.1-2025-04-14');
+    console.log('API Call - Max Tokens:', 400);
+
     const classificationData = await classificationResponse.json();
+    
+    console.log('Output - Stage 1: OpenAI Response received');
+    console.log('Output - Has choices:', !!classificationData.choices);
+    
     if (!classificationData.choices?.[0]?.message?.content) {
+      console.error('ERROR - Stage 1: No content in response:', JSON.stringify(classificationData));
       throw new Error(`Classification failed: ${JSON.stringify(classificationData)}`);
     }
     const classification = JSON.parse(classificationData.choices[0].message.content);
-
+    
+    console.log('Output - Stage 1: Classification Status:', classification.status);
+    console.log('Output - Stage 1: Confidence:', classification.confidence);
+    
     if (classification.status === 'needs_clarification') {
+      console.log('Output - Stage 1: Needs clarification. Questions:', classification.questions);
       await supabaseClient.from('chat_messages').insert({
         session_id: sessionId,
         role: 'assistant',
@@ -320,6 +365,10 @@ Respond with JSON:
       });
       return new Response(JSON.stringify({ needsClarification: true, questions: classification.questions }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
+
+    console.log('========== STAGE 2: SQL GENERATION ==========');
+    console.log('Input - Stage 2: Clean Intent:', JSON.stringify(cleanIntent, null, 2));
+    console.log('Input - Stage 2: Valid Tables Count:', validTables.length);
 
     // ========== Step 2: SQL generation into canonical non-pivot schema ==========
     const sqlPrompt = `You are an expert PostgreSQL query generator.
@@ -338,7 +387,7 @@ Each row must represent one (period, entity, metric) combination with the follow
 - reporting_currency (text)       -- OPTIONAL: currency code (e.g., 'USD', 'INR') if the source table has a reporting_currency column; include this for ALL currency-related metrics
 
 AVAILABLE TABLES & COLUMNS:
-${validTables.map(table => `
+${validTables.map((table: any) => `
 Table Name: ${table.tableName} (use this EXACT name in FROM clause)
 Description: "${table.schemaName}" - ${table.schemaDescription || 'No description'}
 Columns:
@@ -405,22 +454,43 @@ Return JSON only:
       }),
     });
 
+    console.log('API Call - Stage 2: Calling OpenAI for SQL generation');
+    console.log('API Call - Model:', 'gpt-5.1-2025-11-13');
+    console.log('API Call - Max Tokens:', 2000);
+
     const sqlData = await sqlResponse.json();
+    
+    console.log('Output - Stage 2: OpenAI Response received');
+    console.log('Output - Has choices:', !!sqlData.choices);
+    
     if (!sqlData.choices?.[0]?.message?.content) {
+      console.error('ERROR - Stage 2: No content in response:', JSON.stringify(sqlData));
       throw new Error(`SQL generation failed: ${JSON.stringify(sqlData)}`);
     }
     const sqlResult = JSON.parse(sqlData.choices[0].message.content);
     const sanitizedSql = (sqlResult.sql as string).trim().replace(/;$/, '');
+    
+    console.log('Output - Stage 2: Generated SQL length:', sanitizedSql.length);
+    console.log('Output - Stage 2: SQL:', sanitizedSql);
+    console.log('Output - Stage 2: Explanation:', sqlResult.explanation);
 
+    console.log('========== STAGE 3: SQL EXECUTION ==========');
+    console.log('Input - Stage 3: Executing SQL query');
+    
     // Step 3: Execute SQL (results will already be canonical rows)
     const { data, error: queryError } = await supabaseClient
       .rpc('execute_safe_query', { p_query_text: sanitizedSql });
 
     if (queryError) {
+      console.error('ERROR - Stage 3: SQL execution failed:', queryError);
       throw new Error(`SQL execution failed: ${queryError.message}`);
     }
 
     let queryResult: any[] = Array.isArray(data) ? data : (data ? [data] : []);
+    
+    console.log('Output - Stage 3: Query executed successfully');
+    console.log('Output - Stage 3: Result row count:', queryResult.length);
+    console.log('Output - Stage 3: First 3 rows:', JSON.stringify(queryResult.slice(0, 3), null, 2));
 
     // Ensure numeric percentages are in 0-100 range (defensive; SQL should already do this)
     queryResult = queryResult.map((row: any) => {
@@ -430,6 +500,9 @@ Return JSON only:
       }
       return r;
     }) as CanonicalRow[];
+
+    console.log('========== STAGE 4: DATA SUMMARY GENERATION ==========');
+    console.log('Input - Stage 4: Rows to summarize:', Math.min(queryResult.length, 50));
 
     // Step 4: Generate Data Summary (explanatory answer)
     const safeQueryResult = Array.isArray(queryResult) ? queryResult : [];
@@ -463,13 +536,27 @@ Use business language and mention time range, entities, and key metrics. Respond
       }),
     });
 
+    console.log('API Call - Stage 4: Calling OpenAI for summary generation');
+    console.log('API Call - Model:', 'gpt-5-nano-2025-08-07');
+    console.log('API Call - Max Tokens:', 400);
+
     const summaryData = await summaryResponse.json();
+    
+    console.log('Output - Stage 4: OpenAI Response received');
+    console.log('Output - Has choices:', !!summaryData.choices);
+    
     if (!summaryData.choices?.[0]?.message?.content) {
+      console.error('ERROR - Stage 4: No content in response:', JSON.stringify(summaryData));
       throw new Error(`Summary generation failed: ${JSON.stringify(summaryData)}`);
     }
     const summaryPayload = JSON.parse(summaryData.choices[0].message.content);
     const dataSummary: string = summaryPayload.short_answer || summaryPayload.detailed_explanation || '';
+    
+    console.log('Output - Stage 4: Summary generated');
+    console.log('Output - Stage 4: Summary length:', dataSummary.length);
+    console.log('Output - Stage 4: Summary:', dataSummary);
 
+    console.log('========== PERSISTING CHAT MESSAGE ==========');
     // Persist chat message; keep metadata shape similar so frontend doesn't break
     await supabaseClient.from('chat_messages').insert({
       session_id: sessionId,
@@ -484,6 +571,11 @@ Use business language and mention time range, entities, and key metrics. Respond
         intent: cleanIntent
       }
     });
+
+    console.log('========== FINAL RESPONSE ==========');
+    console.log('Output - Final: Returning successful response');
+    console.log('Output - Final: Results count:', queryResult.length);
+    console.log('Output - Final: SQL length:', sanitizedSql.length);
 
     // Final response: preserve top-level structure the frontend expects
     return new Response(
