@@ -240,7 +240,7 @@ Respond ONLY with JSON:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'gpt-5.1-2025-11-13',
         messages: [
           { role: 'system', content: 'You are a query refinement expert. Always respond with valid JSON.' },
           { role: 'user', content: cleanIntentPrompt }
@@ -394,7 +394,7 @@ Return JSON only:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'gpt-5.1-2025-11-13',
         messages: [
           { role: 'system', content: 'You are an expert SQL generator. Always respond with valid JSON.' },
           { role: 'user', content: sqlPrompt }
@@ -452,7 +452,7 @@ Use business language and mention time range, entities, and key metrics. Respond
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
+        model: 'gpt-5-nano-2025-08-07',
         messages: [
           { role: 'system', content: 'You are a data summarization expert. Always respond with valid JSON.' },
           { role: 'user', content: summaryPrompt }
