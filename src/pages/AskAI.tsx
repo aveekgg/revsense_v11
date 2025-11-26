@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, Trash2, Plus, MessageSquare, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatMessage } from '@/components/chat/ChatMessage';
+import { ChatInputWithMentions } from '@/components/chat/ChatInputWithMentions';
 import { useChatSession } from '@/hooks/useChatSession';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -51,8 +51,8 @@ const AskAI = () => {
     }
   }, [currentSessionId, sessions, isLoadingSessions]);
 
-  const handleSend = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSend = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!input.trim() || !currentSessionId) return;
     console.log('📤 Sending message:', input);
     console.log('📊 Current messages count:', messages.length);
@@ -213,12 +213,12 @@ const AskAI = () => {
           <div className="p-4 border-t bg-card">
             <div className={cn("mx-auto", showHistory ? "max-w-4xl" : "max-w-5xl")}>
               <form onSubmit={handleSend} className="flex gap-2">
-                <Input
+                <ChatInputWithMentions
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask me anything about your data..."
+                  onChange={setInput}
+                  onSubmit={handleSend}
                   disabled={isSendingMessage}
-                  className="flex-1"
+                  placeholder="Ask me anything about your data... (Use @ for entities, ~ for metrics)"
                 />
                 <Button type="submit" disabled={isSendingMessage || !input.trim()}>
                   <Send className="h-4 w-4" />

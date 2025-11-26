@@ -206,7 +206,7 @@ Sample Rows: ${JSON.stringify(table.sampleRows, null, 2)}
     console.log('Input - Schema Summary:', schemaSummary.substring(0, 500) + '...');
     console.log('Input - Business Context Length:', businessContextMarkdown.length, 'characters');
 
-    const cleanIntentPrompt = `You are a query refinement expert for a financial/hospitality data warehouse.
+const cleanIntentPrompt = `You are a query refinement expert for a financial/hospitality data warehouse.
 
 # AVAILABLE DATA
 ${escapeForPrompt(schemaSummary)}
@@ -530,14 +530,14 @@ Use business language and mention time range, entities, and key metrics. Respond
           { role: 'system', content: 'You are a data summarization expert. Always respond with valid JSON.' },
           { role: 'user', content: summaryPrompt }
         ],
-        max_completion_tokens: 1000,
+        max_completion_tokens: 5000,
         response_format: { type: 'json_object' }
       }),
     });
 
     console.log('API Call - Stage 4: Calling OpenAI for summary generation');
     console.log('API Call - Model:', 'gpt-5-nano-2025-08-07');
-    console.log('API Call - Max Completion Tokens:', 1000);
+    console.log('API Call - Max Completion Tokens:', 5000);
 
     const summaryData = await summaryResponse.json();
     

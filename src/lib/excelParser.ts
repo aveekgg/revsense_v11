@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { WorkbookData, CellStyle, MergedCell } from '@/types/excel';
+import { WorkbookData, CellStyle } from '@/types/excel';
 
 export const parseExcelFile = async (file: File): Promise<WorkbookData> => {
   try {
@@ -9,55 +9,15 @@ export const parseExcelFile = async (file: File): Promise<WorkbookData> => {
       cellStyles: true,
       cellHTML: false,
       cellFormula: true,
-      cellDates: true,
-      sheetRows: 0, // Read all rows including hidden ones
+      cellDates: true
     });
     
     const sheets: Record<string, any[][]> = {};
     const cellStyles: Record<string, Record<string, CellStyle>> = {};
-    const mergedCells: Record<string, MergedCell[]> = {};
-    const hiddenRows: Record<string, number[]> = {};
-    const hiddenColumns: Record<string, number[]> = {};
     const sheetNames = workbook.SheetNames;
     
     sheetNames.forEach(sheetName => {
       const worksheet = workbook.Sheets[sheetName];
-      
-      // Extract merged cells
-      if (worksheet['!merges']) {
-        mergedCells[sheetName] = worksheet['!merges'].map((merge: any) => ({
-          row: merge.s.r,
-          col: merge.s.c,
-          rowspan: merge.e.r - merge.s.r + 1,
-          colspan: merge.e.c - merge.s.c + 1,
-        }));
-      }
-      
-      // Extract hidden rows
-      if (worksheet['!rows']) {
-        const hidden: number[] = [];
-        worksheet['!rows'].forEach((rowInfo: any, index: number) => {
-          if (rowInfo && rowInfo.hidden) {
-            hidden.push(index);
-          }
-        });
-        if (hidden.length > 0) {
-          hiddenRows[sheetName] = hidden;
-        }
-      }
-      
-      // Extract hidden columns
-      if (worksheet['!cols']) {
-        const hidden: number[] = [];
-        worksheet['!cols'].forEach((colInfo: any, index: number) => {
-          if (colInfo && colInfo.hidden) {
-            hidden.push(index);
-          }
-        });
-        if (hidden.length > 0) {
-          hiddenColumns[sheetName] = hidden;
-        }
-      }
       
       // Convert sheet to 2D array
       const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
@@ -91,7 +51,6 @@ export const parseExcelFile = async (file: File): Promise<WorkbookData> => {
                 if (cellStyle.font.bold) style.bold = true;
                 if (cellStyle.font.italic) style.italic = true;
                 if (cellStyle.font.underline) style.underline = true;
-                if (cellStyle.font.sz) style.fontSize = cellStyle.font.sz;
                 if (cellStyle.font.color?.rgb) {
                   style.color = `#${cellStyle.font.color.rgb}`;
                 }
@@ -100,14 +59,6 @@ export const parseExcelFile = async (file: File): Promise<WorkbookData> => {
               // Background color
               if (cellStyle.fill?.fgColor?.rgb) {
                 style.bgColor = `#${cellStyle.fill.fgColor.rgb}`;
-              }
-              
-              // Alignment
-              if (cellStyle.alignment) {
-                style.alignment = {
-                  horizontal: cellStyle.alignment.horizontal as any,
-                  vertical: cellStyle.alignment.vertical as any,
-                };
               }
               
               // Borders
@@ -141,9 +92,6 @@ export const parseExcelFile = async (file: File): Promise<WorkbookData> => {
       sheetNames,
       uploadDate: new Date(),
       cellStyles,
-      mergedCells,
-      hiddenRows,
-      hiddenColumns,
     };
   } catch (error) {
     console.error('Error parsing Excel file:', error);

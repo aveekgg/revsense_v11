@@ -15,6 +15,7 @@ import SchemaJsonImport from "@/components/schema/SchemaJsonImport";
 import { SchemaDeleteDialog } from '@/components/schema/SchemaDeleteDialog';
 import BusinessContextEditor from "@/components/business/BusinessContextEditor";
 import MappingDetailsSheet from "@/components/mapping/MappingDetailsSheet";
+import { ChatEntitiesManager } from "@/components/chat/ChatEntitiesManager";
 import { Schema, SavedMapping } from "@/types/excel";
 
 const ProjectConfig = () => {
@@ -42,7 +43,7 @@ const ProjectConfig = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [viewingMapping, setViewingMapping] = useState<SavedMapping | null>(null);
   const [mappingDetailsOpen, setMappingDetailsOpen] = useState(false);
-  const tabs = ["Schemas", "Mappings", "Business Logic"];
+  const tabs = ["Schemas", "Mappings", "Business Logic", "Chat Entities"];
 
   useEffect(() => {
     refreshSchemas();
@@ -344,6 +345,12 @@ const ProjectConfig = () => {
         {activeTab === "Business Logic" && (
           <div className="space-y-6 animate-fade-in">
             <BusinessContextEditor />
+          </div>
+        )}
+
+        {activeTab === "Chat Entities" && (
+          <div className="space-y-6 animate-fade-in">
+            <ChatEntitiesManager />
           </div>
         )}
       </div>
