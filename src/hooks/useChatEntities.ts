@@ -173,18 +173,27 @@ export const useEntitySearch = (searchQuery: string, type?: EntityType | EntityT
   const { data: entities = [], isLoading } = useQuery({
     queryKey: ['chat-entities-search', searchQuery, type],
     queryFn: async () => {
-      if (!searchQuery || searchQuery.length < 1) return [];
-
+      console.log('🔎 useEntitySearch called:', { searchQuery, type });
+      
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return [];
+      if (!user) {
+        console.log('⚠️ No user authenticated');
+        return [];
+      }
+
+      console.log('✅ User authenticated:', user.id);
 
       let query = supabase
         .from('chat_entities')
         .select('*')
         .eq('user_id', user.id)
-        .ilike('name', `%${searchQuery}%`)
         .order('name', { ascending: true })
         .limit(10);
+
+      // Apply search filter if provided
+      if (searchQuery && searchQuery.length > 0) {
+        query = query.ilike('name', `%${searchQuery}%`);
+      }
 
       // Apply type filter if provided
       if (type) {
@@ -198,13 +207,14 @@ export const useEntitySearch = (searchQuery: string, type?: EntityType | EntityT
       const { data, error } = await query;
 
       if (error) {
-        console.error('Entity search error:', error);
+        console.error('❌ Entity search error:', error);
         return [];
       }
       
+      console.log('✅ Entity search results:', data);
       return data as ChatEntity[];
     },
-    enabled: searchQuery.length > 0,
+    enabled: type !== undefined, // Enable as long as we have a type (@ or ~)
   });
 
   return { entities, isLoading };

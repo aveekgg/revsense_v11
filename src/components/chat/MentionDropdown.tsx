@@ -9,6 +9,7 @@ interface MentionDropdownProps {
   selectedIndex: number;
   onSelect: (entity: ChatEntity) => void;
   position?: { top: number; left: number };
+  openUpwards?: boolean;
 }
 
 const getEntityIcon = (type: string) => {
@@ -46,21 +47,28 @@ export const MentionDropdown = ({
   selectedIndex,
   onSelect,
   position,
+  openUpwards = false,
 }: MentionDropdownProps) => {
   if (entities.length === 0) return null;
 
+  const style = position 
+    ? openUpwards
+      ? { bottom: `${window.innerHeight - position.top}px`, left: position.left, transform: 'translateY(0)' }
+      : { top: position.top, left: position.left }
+    : undefined;
+
   return (
     <Card
-      className="absolute z-50 w-80 shadow-lg border-border"
-      style={position ? { top: position.top, left: position.left } : undefined}
+      className="fixed z-50 w-72 shadow-lg border-border"
+      style={style}
     >
-      <ScrollArea className="max-h-64">
+      <ScrollArea className="max-h-48">
         <div className="p-1">
           {entities.map((entity, index) => (
             <div
               key={entity.id}
               className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors',
+                'flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors text-sm',
                 index === selectedIndex
                   ? 'bg-accent text-accent-foreground'
                   : 'hover:bg-muted'
@@ -74,13 +82,13 @@ export const MentionDropdown = ({
               {getEntityIcon(entity.type)}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium truncate">{entity.name}</span>
+                  <span className="font-medium truncate text-sm">{entity.name}</span>
                   <span className="text-xs text-muted-foreground">
                     {getTypeLabel(entity.type)}
                   </span>
                 </div>
                 {entity.description && (
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                  <p className="text-xs text-muted-foreground truncate">
                     {entity.description}
                   </p>
                 )}
@@ -89,13 +97,13 @@ export const MentionDropdown = ({
           ))}
         </div>
       </ScrollArea>
-      <div className="border-t bg-muted/50 px-3 py-1.5 text-xs text-muted-foreground">
-        <span className="flex items-center gap-2">
-          <kbd className="px-1.5 py-0.5 bg-background border rounded text-[10px]">↑↓</kbd>
+      <div className="border-t bg-muted/50 px-2 py-1 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <kbd className="px-1 py-0.5 bg-background border rounded text-[10px]">↑↓</kbd>
           Navigate
-          <kbd className="px-1.5 py-0.5 bg-background border rounded text-[10px]">Enter</kbd>
+          <kbd className="px-1 py-0.5 bg-background border rounded text-[10px]">↵</kbd>
           Select
-          <kbd className="px-1.5 py-0.5 bg-background border rounded text-[10px]">Esc</kbd>
+          <kbd className="px-1 py-0.5 bg-background border rounded text-[10px]">Esc</kbd>
           Close
         </span>
       </div>

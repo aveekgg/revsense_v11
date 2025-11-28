@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatInputWithMentions } from '@/components/chat/ChatInputWithMentions';
+import { ChatEntitiesDiagnostic } from '@/components/chat/ChatEntitiesDiagnostic';
 import { useChatSession } from '@/hooks/useChatSession';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -74,6 +75,7 @@ const AskAI = () => {
 
   return (
     <>
+      <ChatEntitiesDiagnostic />
       <div className="h-full flex">
         {/* Session History Sidebar - Toggleable */}
         {showHistory && (
