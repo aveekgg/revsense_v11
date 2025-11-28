@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Chat Entities</title>
+</head>
+<body>
+    <h1>Chat Entities Debug Tool</h1>
+    <div id="debug-output"></div>
+    
+    <script>
+        // Quick test to check if entities are accessible
+        async function testChatEntities() {
+            const output = document.getElementById('debug-output');
+            output.innerHTML = '<p>🔧 Starting debug test...</p>';
+            
+            try {
+                // This assumes you're logged into your app in another tab
+                const response = await fetch('/rest/v1/chat_entities', {
+                    headers: {
+                        'Authorization': 'Bearer YOUR_ACCESS_TOKEN', // Replace with actual token
+                        'apikey': 'YOUR_ANON_KEY' // Replace with your anon key
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    output.innerHTML += `<p>✅ API Response: ${data.length} entities found</p>`;
+                    output.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    output.innerHTML += `<p>❌ API Error: ${response.status} - ${response.statusText}</p>`;
+                }
+            } catch (error) {
+                output.innerHTML += `<p>❌ Fetch Error: ${error.message}</p>`;
+            }
+        }
+        
+        // Auto-run when page loads
+        testChatEntities();
+    </script>
+</body>
+</html>

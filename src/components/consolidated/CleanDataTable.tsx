@@ -5,9 +5,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Download, Trash2, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, Filter, ChevronDown as ChevronDownIcon } from "lucide-react";
+import { Download, Trash2, RefreshCw, ChevronUp, ChevronDown, ChevronsUpDown, Filter, ChevronDown as ChevronDownIcon, Info } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { formatValue, formatTimestamp } from '@/lib/formatters';
+import { trimText } from '@/lib/utils';
+import { SchemaDescriptionModal } from './SchemaDescriptionModal';
 import {
   Pagination,
   PaginationContent,
@@ -74,6 +76,9 @@ export function CleanDataTable({
   const [openFilters, setOpenFilters] = useState<OpenFilters>({});
   
   const [currentPage, setCurrentPage] = useState(1);
+  
+  // Schema description modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const tableName = `clean_${schema.name.toLowerCase().replace(/[^a-z0-9_]/g, '_')}`;
 
@@ -284,25 +289,43 @@ export function CleanDataTable({
   };
 
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg font-semibold mb-1">
-              {tableName}
-            </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {sortedRecords.length} {sortedRecords.length === 1 ? 'record' : 'records'}
-              {sortedRecords.length !== records.length && ` (filtered from ${records.length})`}
-              {schema.description && ` • ${schema.description}`}
-            </p>
-            
-            {/* Sorting Controls */}
-            <div className="flex items-center gap-4 mt-3">
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-muted-foreground">Sort:</span>
+    <>
+      <Card className="mb-6">
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <CardTitle className="text-lg font-semibold mb-1">
+                {tableName}
+              </CardTitle>
+              <div className="text-sm text-muted-foreground space-y-1">
+                <div>
+                  {sortedRecords.length} {sortedRecords.length === 1 ? 'record' : 'records'}
+                  {sortedRecords.length !== records.length && ` (filtered from ${records.length})`}
+                </div>
+                {schema.description && (
+                  <div className="flex items-start gap-2">
+                    <span>{trimText(schema.description, 120).text}</span>
+                    {trimText(schema.description, 120).wasTruncated && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-auto p-0 text-primary hover:text-primary/80"
+                        onClick={() => setIsModalOpen(true)}
+                      >
+                        <Info className="h-3 w-3 mr-1" />
+                        View full schema
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
+              
+              {/* Sorting Controls */}
+              <div className="flex items-center gap-4 mt-3">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">Sort:</span>
+                </div>
               
               {/* Sort 1 (Primary) */}
               <div className="flex items-center gap-2">
@@ -602,5 +625,13 @@ export function CleanDataTable({
         )}
       </CardContent>
     </Card>
+    
+    {/* Schema Description Modal */}
+    <SchemaDescriptionModal 
+      open={isModalOpen} 
+      onOpenChange={setIsModalOpen} 
+      schema={schema} 
+    />
+  </>
   );
 }
