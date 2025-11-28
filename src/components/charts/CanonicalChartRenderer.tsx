@@ -23,6 +23,7 @@ export interface AxisConfig {
   type: 'absolute' | 'percentage';
   format?: 'currency' | 'number' | 'percentage';
   decimals?: number;
+  scale?: 'auto' | 'thousands' | 'lakhs' | 'millions' | 'crores';
 }
 
 export interface SeriesConfig {
@@ -33,6 +34,7 @@ export interface SeriesConfig {
   yAxisId: 'left' | 'right';
   color: string;
   label?: string;          // legend label
+  lineType?: 'monotone' | 'linear' | 'step';  // line interpolation type
 }
 
 export interface ChartConfig {
@@ -62,6 +64,38 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
       </div>
     );
   }
+
+  // Utility function to scale values based on axis configuration
+  const scaleValue = (value: number, scale?: string): number => {
+    switch (scale) {
+      case 'thousands':
+        return value / 1000;
+      case 'lakhs':
+        return value / 100000;
+      case 'millions':
+        return value / 1000000;
+      case 'crores':
+        return value / 10000000;
+      default:
+        return value;
+    }
+  };
+
+  // Utility function to get scale suffix for axis labels
+  const getScaleSuffix = (scale?: string): string => {
+    switch (scale) {
+      case 'thousands':
+        return 'K';
+      case 'lakhs':
+        return 'L';
+      case 'millions':
+        return 'M';
+      case 'crores':
+        return 'Cr';
+      default:
+        return '';
+    }
+  };
 
   // Format period labels based on grain
   const formatPeriodLabel = (period: string): string => {
@@ -134,13 +168,19 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
 
   // Format axis values based on axis config
   const formatAxisValue = (value: number, axis: AxisConfig, currency?: string): string => {
+    // Apply scaling first
+    const scaledValue = scaleValue(value, axis.scale);
+    const suffix = getScaleSuffix(axis.scale);
+    
     if (axis.format === 'currency') {
-      return formatCurrency(value, currency || 'USD');
+      const formatted = formatCurrency(scaledValue, currency || 'USD');
+      return suffix ? `${formatted}${suffix}` : formatted;
     }
     if (axis.format === 'percentage') {
-      return `${value.toFixed(axis.decimals ?? 1)}%`;
+      return `${scaledValue.toFixed(axis.decimals ?? 1)}%`;
     }
-    return formatNumber(value);
+    const formatted = formatNumber(scaledValue);
+    return suffix ? `${formatted}${suffix}` : formatted;
   };
 
   // Format tooltip values based on series type
@@ -158,6 +198,16 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
     if (!axis) return formatNumber(value);
 
     const currency = getCurrencyForSeries(seriesId);
+    
+    // For tooltips, show both scaled and original values for clarity
+    if (axis.scale && axis.scale !== 'auto') {
+      const scaledFormatted = formatAxisValue(value, axis, currency);
+      const originalFormatted = axis.format === 'currency' 
+        ? formatCurrency(value, currency || 'USD')
+        : formatNumber(value);
+      return `${scaledFormatted} (${originalFormatted})`;
+    }
+    
     return formatAxisValue(value, axis, currency);
   };
 
@@ -171,7 +221,10 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
       )}
       
       <ResponsiveContainer width="100%" height={450}>
-        <ComposedChart data={pivotedData} margin={{ top: 20, right: 30, bottom: 60, left: 20 }}>
+        <ComposedChart 
+          data={pivotedData} 
+          margin={{ top: 20, right: hasRightAxis ? 50 : 30, bottom: 80, left: 50 }}
+        >
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           
           <XAxis 
@@ -181,7 +234,8 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
             angle={-45}
             textAnchor="end"
             height={80}
-            label={config.xLabel ? { value: config.xLabel, position: 'insideBottom', offset: -10 } : undefined}
+            interval={0}  // Show all labels
+            label={config.xLabel ? { value: config.xLabel, position: 'insideBottom', offset: -5 } : undefined}
           />
           
           {config.yAxes.map(axis => {
@@ -194,13 +248,21 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
               : undefined;
             const axisCurrency = axisSeriesKey ? getCurrencyForSeries(axisSeriesKey) : undefined;
             
+            // Enhanced axis label with scale suffix
+            const axisLabel = axis.label ? 
+              (axis.scale && axis.scale !== 'auto' 
+                ? `${axis.label} (${getScaleSuffix(axis.scale)})`
+                : axis.label)
+              : undefined;
+            
             return (
               <YAxis
                 key={axis.id}
                 yAxisId={axis.id}
                 orientation={axis.id === 'right' ? 'right' : 'left'}
-                label={axis.label ? { 
-                  value: axis.label, 
+                width={axis.id === 'right' ? 80 : 80}
+                label={axisLabel ? { 
+                  value: axisLabel, 
                   angle: -90, 
                   position: axis.id === 'right' ? 'insideRight' : 'insideLeft',
                   style: { textAnchor: 'middle' }
@@ -208,6 +270,7 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
                 className="text-xs"
                 stroke="hsl(var(--muted-foreground))"
                 tickFormatter={(value) => formatAxisValue(value, axis, axisCurrency)}
+                domain={['auto', 'auto']}  // Let Recharts auto-scale for better spacing
               />
             );
           })}
@@ -235,7 +298,8 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
           
           {config.showLegend && (
             <Legend 
-              wrapperStyle={{ paddingTop: '20px' }}
+              wrapperStyle={{ paddingTop: '30px', paddingBottom: '10px' }}
+              iconType="line"
               formatter={(value) => {
                 const series = config.series.find(s => {
                   const key = s.entity_name 
@@ -248,31 +312,75 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
             />
           )}
 
-          {config.series.map(s => {
-            const dataKey = s.entity_name 
-              ? `${s.entity_name}_${s.metric_name}`
-              : s.metric_name;
-            
-            const props = {
-              key: s.id,
-              dataKey,
-              name: dataKey, // Used for tooltip/legend lookup
-              yAxisId: s.yAxisId,
-              stroke: s.color,
-              fill: s.color
-            };
+          {/* Render bars first, then lines for proper layering */}
+          {config.series
+            .filter(s => s.type === 'bar')
+            .map(s => {
+              const dataKey = s.entity_name 
+                ? `${s.entity_name}_${s.metric_name}`
+                : s.metric_name;
+              
+              const props = {
+                key: s.id,
+                dataKey,
+                name: dataKey, // Used for tooltip/legend lookup
+                yAxisId: s.yAxisId,
+                fill: s.color,
+                stroke: s.color,
+                strokeWidth: 0
+              };
 
-            if (s.type === 'bar') {
               return <Bar {...props} />;
-            }
-            if (s.type === 'line') {
-              return <Line {...props} type="monotone" strokeWidth={2} dot={{ r: 3 }} />;
-            }
-            if (s.type === 'area') {
-              return <Area {...props} type="monotone" />;
-            }
-            return null;
-          })}
+            })}
+          
+          {/* Render areas second */}
+          {config.series
+            .filter(s => s.type === 'area')
+            .map(s => {
+              const dataKey = s.entity_name 
+                ? `${s.entity_name}_${s.metric_name}`
+                : s.metric_name;
+              
+              const props = {
+                key: s.id,
+                dataKey,
+                name: dataKey, // Used for tooltip/legend lookup
+                yAxisId: s.yAxisId,
+                stroke: s.color,
+                fill: s.color,
+                fillOpacity: 0.6
+              };
+
+              return <Area {...props} type={s.lineType || 'linear'} />;
+            })}
+
+          {/* Render lines last for top layering */}
+          {config.series
+            .filter(s => s.type === 'line')
+            .map(s => {
+              const dataKey = s.entity_name 
+                ? `${s.entity_name}_${s.metric_name}`
+                : s.metric_name;
+              
+              const props = {
+                key: s.id,
+                dataKey,
+                name: dataKey, // Used for tooltip/legend lookup
+                yAxisId: s.yAxisId,
+                stroke: s.color,
+                strokeWidth: 2,
+                fill: 'none'  // Ensure lines don't have fill
+              };
+
+              return (
+                <Line 
+                  {...props} 
+                  type={s.lineType || 'linear'}  // Use linear for straight lines, or monotone for curves
+                  dot={{ r: 3, strokeWidth: 2, fill: s.color }}
+                  activeDot={{ r: 5, strokeWidth: 0, fill: s.color }}
+                />
+              );
+            })}
         </ComposedChart>
       </ResponsiveContainer>
     </div>

@@ -180,6 +180,7 @@ export interface AxisConfig {
   type: 'absolute' | 'percentage';
   format?: 'currency' | 'number' | 'percentage';
   decimals?: number;
+  scale?: 'auto' | 'thousands' | 'lakhs' | 'millions' | 'crores';
 }
 
 export interface SeriesConfig {
@@ -190,6 +191,7 @@ export interface SeriesConfig {
   yAxisId: 'left' | 'right';
   color: string;
   label?: string;          // legend label
+  lineType?: 'monotone' | 'linear' | 'step';  // line interpolation type
 }
 
 export interface ChartConfig {
@@ -224,16 +226,26 @@ RULES:
    - If only absolute metrics: single left axis (type='absolute').
    - If only percentages: single right axis (type='percentage').
    - Set format accordingly: 'currency' for revenue-like metrics (you can infer from metric_name/label), 'percentage' for percentage metrics, 'number' otherwise.
+   - INTELLIGENT SCALING: For large absolute values, add 'scale' property:
+     * If max value >= 10,000,000 (10M): scale = 'millions' 
+     * If max value >= 1,000,000 (1M): scale = 'millions'
+     * If max value >= 100,000 (1 lakh): scale = 'lakhs'
+     * If max value >= 10,000: scale = 'thousands'
+     * Otherwise: scale = 'auto'
 5) Series mapping:
    - Each unique (metric_name, entity_name) combination that is relevant should become a SeriesConfig.
    - For multi-entity comparison on the same metric, use multiple series with same metric_name but different entity_name.
-   - Colors: cycle through
-       "hsl(var(--chart-1))",
-       "hsl(var(--chart-2))",
-       "hsl(var(--chart-3))",
-       "hsl(var(--chart-4))",
-       "hsl(var(--chart-5))"
-     for different series.
+   - ENHANCED COLOR ASSIGNMENT: Distribute colors more intelligently:
+     * For 1-5 series: use chart-1 through chart-5 sequentially: 
+       - "hsl(var(--chart-1))" (Primary Blue)
+       - "hsl(var(--chart-2))" (Secondary Purple) 
+       - "hsl(var(--chart-3))" (Teal)
+       - "hsl(var(--chart-4))" (Amber)
+       - "hsl(var(--chart-5))" (Rose)
+     * For 6+ series: cycle through colors with better contrast
+     * Group related metrics with similar color families when possible
+     * NEVER use solid colors like "black", "blue", etc. - always use hsl(var(--chart-N)) format
+   - For line charts, set lineType = 'linear' for straight lines (not curved)
    - Use lines for percentage metrics in a combo chart when mixed with absolute bars.
 6) Sorting & stability:
    - Assume the backend already sorted data by period ascending.
@@ -241,6 +253,28 @@ RULES:
 7) Title/description:
    - Generate a concise, business-friendly title from the metrics, entities, and time window implied by the data.
    - Optionally include a short description.
+
+EXAMPLE COLOR USAGE:
+{
+  "series": [
+    {
+      "id": "hotel_a_revenue",
+      "type": "bar", 
+      "color": "hsl(var(--chart-1))",
+      "metric_name": "total_revenue",
+      "entity_name": "Hotel A",
+      "yAxisId": "left"
+    },
+    {
+      "id": "hotel_b_revenue", 
+      "type": "bar",
+      "color": "hsl(var(--chart-2))",
+      "metric_name": "total_revenue", 
+      "entity_name": "Hotel B",
+      "yAxisId": "left"
+    }
+  ]
+}
 
 Return ONLY valid JSON matching ChartConfig. Do NOT include any markdown or commentary.`;
 
