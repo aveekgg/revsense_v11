@@ -174,8 +174,8 @@ const MappingDetailsSheet = ({ mapping, schema, open, onOpenChange, onUpdate }: 
           </div>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-8rem)] pr-4 mt-6">
-          <div className="space-y-6">
+        <ScrollArea className="h-[calc(100vh-12rem)] pr-4 mt-6">
+          <div className="space-y-6 pb-8">
             {/* Metadata */}
             <Card>
               <CardHeader>
