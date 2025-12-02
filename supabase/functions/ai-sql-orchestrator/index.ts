@@ -696,7 +696,15 @@ ${JSON.stringify(t.sampleRows || [], null, 2)}
 `;
   }).join('\n');
 
-  const sqlPrompt = `You are an expert PostgreSQL query generator.
+// NEW: Define join relationships as a static string (update as needed)
+  const joinRelationships = `
+# TABLE RELATIONSHIPS (use these for joins)
+- clean_hotel_financials and clean_hotel_master: join on clean_hotel_financials.hotel_name = clean_hotel_master.hotel_name
+- clean_hotel_financials and clean_currency_exchange_rates: join on clean_hotel_financials.period_start_date = clean_currency_exchange_rates.month_start_date
+- For queries needing all three tables (clean_hotel_financials, clean_hotel_master, clean_currency_exchange_rates), use both joins above.
+`;
+
+  const sqlPrompt = `You are an expert SQL generator. Use only PostgreSQL-specific syntax and functions in your queries.
 
 Your job is to generate a single SQL statement that returns data in a fixed canonical LONG format (non-pivot).
 
@@ -716,6 +724,9 @@ ${escapeForPrompt(tablesText)}
 
 BUSINESS CONTEXT:
 ${escapeForPrompt(businessContext)}
+
+Join relationships:
+${escapeForPrompt(joinRelationships)}
 
 CLEAN INTENT:
 ${escapeForPrompt(JSON.stringify(cleanIntent, null, 2))}
@@ -1026,7 +1037,52 @@ serve(async (req) => {
     const summaryPayload = await generateSummary(openaiApiKey, cleanIntent.cleanQuery, generatedSql, queryResult);
     const dataSummary = (summaryPayload.short_answer || summaryPayload.detailed_explanation || '').toString();
 
-    // Persist chat message & metadata
+    // --- Conversation Summary Logic ---
+    // Fetch last 5 messages for the session (user and assistant)
+    const { data: lastMessages } = await supabaseClient
+      .from('chat_messages')
+      .select('role, content')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    // Build summary prompt
+    const summaryPointsPrompt = `Summarize the following conversation in 5 bullet points, focusing on the most recent user message. For the AI message, use only the explanation (not SQL or table data).\n\nMessages:\n${lastMessages?.reverse().map(m => `${m.role}: ${m.content}`).join('\n')}\n\nRespond as JSON:\n{ "points": ["point 1", "point 2", "point 3", "point 4", "point 5"] }`;
+
+    let summaryPoints = [];
+    try {
+      const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4.1-nano',
+          messages: [
+            { role: 'system', content: 'You are a conversation summarization expert. Always respond with valid JSON.' },
+            { role: 'user', content: summaryPointsPrompt }
+          ],
+          max_tokens: 400,
+          temperature: 0.2
+        }),
+      });
+      const data = await resp.json();
+      let raw = data.choices?.[0]?.message?.content || '';
+      raw = raw.replace(/```json\n?/g, '').replace(/```/g, '').trim();
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m) {
+        const parsed = JSON.parse(m[0]);
+        summaryPoints = Array.isArray(parsed.points) ? parsed.points : [];
+      }
+    } catch (e) {
+      summaryPoints = [];
+    }
+
+    // Store the summary points for the session
+    await supabaseClient.from('chat_sessions').update({ conversation_summary: summaryPoints.join('\n') }).eq('id', sessionId);
+
+    // Persist chat message & metadata (unchanged)
     await supabaseClient.from('chat_messages').insert({
       session_id: sessionId,
       role: 'assistant',
@@ -1041,7 +1097,7 @@ serve(async (req) => {
       }
     });
 
-    // Final response
+    // Final response (unchanged)
     return new Response(JSON.stringify({
       needsClarification: false,
       sql: generatedSql,
