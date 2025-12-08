@@ -19,7 +19,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.77.0";
 // SQL validator dependencies
 import * as PgAst from "https://esm.sh/pgsql-ast-parser@12";
 import initSqlJs from "https://esm.sh/sql.js@1.10.2";
-import { enrichQuery, EnrichedQuery } from "../ai-sql-orchestrator/queryEnricher.ts";
+import { enrichQuery, EnrichedQuery } from "./queryEnricher.ts";
 
 /********************************************************************************************
  * CORS HEADERS
@@ -1123,7 +1123,7 @@ const authedUser = userData.user;
     // STAGE 4 — Execute Validated SQL
     const { data: queryData, error: queryError } = await supabaseClient.rpc(
       "execute_safe_query",
-      { p_query_text: validatedSql }
+      { query_text: validatedSql }
     );
 
     if (queryError) {

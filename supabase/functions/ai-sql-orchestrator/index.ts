@@ -1016,7 +1016,7 @@ serve(async (req) => {
     validateSQL(generatedSql, entityDict, cleanIntent);
 
     // Stage 3: Execute SQL
-    const { data: queryData, error: queryError } = await supabaseClient.rpc('execute_safe_query', { p_query_text: generatedSql });
+    const { data: queryData, error: queryError } = await supabaseClient.rpc('execute_safe_query', { query_text: generatedSql });
     if (queryError) {
       console.error('SQL execution error:', queryError);
       throw new Error(`SQL execution failed: ${queryError.message}`);

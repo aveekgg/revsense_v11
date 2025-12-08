@@ -8,7 +8,7 @@
 
 DROP FUNCTION IF EXISTS public.execute_safe_query(TEXT) CASCADE;
 
-CREATE OR REPLACE FUNCTION public.execute_safe_query(p_query_text TEXT)
+CREATE OR REPLACE FUNCTION public.execute_safe_query(query_text TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -19,14 +19,14 @@ DECLARE
   normalized_query TEXT;
 BEGIN
   -- Handle NULL input
-  IF p_query_text IS NULL OR TRIM(p_query_text) = '' THEN
+  IF query_text IS NULL OR TRIM(query_text) = '' THEN
     RETURN jsonb_build_object(
       'error', 'Query cannot be null or empty'
     );
   END IF;
 
   -- Normalize the query for validation (trim and uppercase)
-  normalized_query := UPPER(TRIM(p_query_text));
+  normalized_query := UPPER(TRIM(query_text));
   
   -- Allow SELECT and WITH (for CTEs)
   IF NOT (normalized_query LIKE 'SELECT%' OR normalized_query LIKE 'WITH%') THEN
@@ -46,7 +46,7 @@ BEGIN
   
   -- Execute the query and convert results to JSON
   BEGIN
-    EXECUTE format('SELECT COALESCE(jsonb_agg(row_to_json(t)), ''[]''::jsonb) FROM (%s) t', p_query_text) INTO result;
+    EXECUTE format('SELECT COALESCE(jsonb_agg(row_to_json(t)), ''[]''::jsonb) FROM (%s) t', query_text) INTO result;
     
     -- Handle empty results
     IF result IS NULL THEN
