@@ -114,8 +114,8 @@ export const useChatSession = (sessionId?: string) => {
         chatHistoryLength: messages.length,
       });
 
-      // Call AI orchestrator
-      const { data, error } = await supabase.functions.invoke('ai-sql-orchestrator', {
+      // Call AI orchestrator - change this to ai-sql-orchestrator for production
+      const { data, error } = await supabase.functions.invoke('ai-sql-gen', {
         body: {
           userQuery: content,
           sessionId: currentSessionId,

@@ -741,12 +741,13 @@ RULES (STRICT — follow exactly):
    - half_year: compute H1/H2 first-day logic
    - year: date_trunc('year', <date_col>)::date
 5. Use time.lookback_periods or start_period/end_period from cleanIntent to filter.
-6. For percentage metrics, compute as (numerator/denominator)*100.
-7. ORDER BY period ASC, entity_name ASC, metric_name ASC.
-8. Use only the exact table names listed above in FROM clauses.
-9. If any entity referenced in cleanIntent does not exist in the available tables, return JSON:
+6. For rounding: If value is a float type (e.g., float4, float8), cast to numeric first: ROUND(value::numeric, 2). Otherwise, use ROUND(value, 2).
+7. For percentage metrics, compute as (numerator/denominator)*100.
+8. ORDER BY period ASC, entity_name ASC, metric_name ASC.
+9. Use only the exact table names listed above in FROM clauses.
+10. If any entity referenced in cleanIntent does not exist in the available tables, return JSON:
    { "error": "unknown_entity", "details": ["<entity>"] }
-10. Do NOT include a trailing semicolon.
+11. Do NOT include a trailing semicolon.
 
 Return JSON only:
 { "sql": "<SQL string>", "explanation": "short explanation" }`;

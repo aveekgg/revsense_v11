@@ -1,0 +1,293 @@
+
+{
+  "table_name": "clean_hotel_master",
+  "fields": [
+    {
+      "id": "field_1763931212452_0",
+      "name": "hotel_name",
+      "type": "text",
+      "required": true,
+      "description": "Official property name as used in legal and financial documentation.",
+      "displayLabel": "Hotel Name"
+    },
+    {
+      "id": "field_1763931212452_1",
+      "name": "address",
+      "type": "text",
+      "required": true,
+      "description": "Full physical address of the property.",
+      "displayLabel": "Address"
+    },
+    {
+      "id": "field_1763931212452_2",
+      "name": "location",
+      "type": "text",
+      "required": true,
+      "description": "Primary geographic identifier such as city or region.",
+      "displayLabel": "Location / City"
+    },
+    {
+      "id": "field_1763931212452_3",
+      "name": "number_of_rooms",
+      "type": "number",
+      "required": true,
+      "description": "Total key count available for sale.",
+      "displayLabel": "Number of Rooms"
+    },
+    {
+      "id": "field_1763931212452_4",
+      "name": "operator",
+      "type": "text",
+      "required": true,
+      "description": "Hotel management company or franchise operator (e.g., Marriott, Hilton, Minor).",
+      "displayLabel": "Operator / Brand"
+    },
+    {
+      "id": "field_1763931212452_5",
+      "name": "revenue_domicile",
+      "type": "enum",
+      "required": true,
+      "description": "Indicates whether revenue recognition domicile is within India or outside.",
+      "enumOptions": [
+        "Domestic",
+        "International"
+      ],
+      "displayLabel": "Revenue Domicile"
+    },
+    {
+      "id": "field_1763931212452_6",
+      "name": "reported_currency",
+      "type": "enum",
+      "required": true,
+      "description": "Primary currency for financial reporting for this property.",
+      "enumOptions": [
+        "INR",
+        "USD"
+      ],
+      "displayLabel": "Reported Currency"
+    },
+    {
+      "id": "field_1763931212452_7",
+      "name": "legal_entity",
+      "type": "text",
+      "required": true,
+      "description": "Owning entity or corporate holding registered for compliance and reporting.",
+      "displayLabel": "Legal Entity"
+    }
+  ]
+},
+
+
+{
+  "table_name": "clean_hotel_financials",
+  "fields": [
+    {
+      "id": "field_1763930691069_0",
+      "name": "hotel_name",
+      "type": "text",
+      "required": true,
+      "description": "",
+      "displayLabel": "Hotel"
+    },
+    {
+      "id": "field_1763930691069_1",
+      "name": "reporting_currency",
+      "type": "text",
+      "required": true,
+      "description": "",
+      "enumOptions": [
+        "INR",
+        "USD"
+      ],
+      "displayLabel": "Reporting Currency"
+    },
+    {
+      "id": "field_1763930691069_2",
+      "name": "period_type",
+      "type": "enum",
+      "required": true,
+      "description": "",
+      "enumOptions": [
+        "month",
+        "quarter",
+        "year"
+      ],
+      "displayLabel": "Period Type"
+    },
+    {
+      "id": "field_1763930691069_3",
+      "name": "period_start_date",
+      "type": "date",
+      "required": true,
+      "description": "",
+      "displayLabel": "Period Start Date"
+    },
+    {
+      "id": "field_1763930691069_4",
+      "name": "room_revenue",
+      "type": "currency",
+      "required": false,
+      "description": "",
+      "displayLabel": "Room Revenue"
+    },
+    {
+      "id": "field_1763930691069_5",
+      "name": "fnb_revenue",
+      "type": "currency",
+      "required": false,
+      "description": "",
+      "displayLabel": "Food & Beverage Revenue"
+    },
+    {
+      "id": "field_1763930691069_7",
+      "name": "other_operating_revenue",
+      "type": "currency",
+      "required": false,
+      "description": "",
+      "displayLabel": "Other Operating Revenue"
+    },
+    {
+      "id": "field_1763930691069_8",
+      "name": "total_revenue",
+      "type": "currency",
+      "required": false,
+      "description": "",
+      "displayLabel": "Total Revenue"
+    },
+    {
+      "id": "field_1763930691069_9",
+      "name": "departmental_operating_expenses",
+      "type": "currency",
+      "required": false,
+      "description": "",
+      "displayLabel": "Departmental Operating Expenses"
+    },
+    {
+      "id": "field_1763930691069_10",
+      "name": "undistributed_operating_expenses",
+      "type": "currency",
+      "required": false,
+      "description": "",
+      "displayLabel": "Undistributed Operating Expenses"
+    },
+    {
+      "id": "field_1763930691069_11",
+      "name": "management_fees",
+      "type": "currency",
+      "required": false,
+      "description": "",
+      "displayLabel": "Management Fee"
+    },
+    {
+      "id": "field_1763930691069_12",
+      "name": "corporate_expenses",
+      "type": "currency",
+      "required": false,
+      "description": "",
+      "displayLabel": "Corporate Expenses (Taxes & Insurance)"
+    },
+    {
+      "id": "field_1763930691069_13",
+      "name": "ff_and_e_reserve",
+      "type": "currency",
+      "required": false,
+      "description": "",
+      "displayLabel": "FF&E Reserve"
+    },
+    {
+      "id": "field_1763930691069_14",
+      "name": "pre_ifrs_rental_expense",
+      "type": "currency",
+      "required": false,
+      "description": "",
+      "displayLabel": "Pre-IFRS Rental Expense"
+    },
+    {
+      "id": "field_1763930691069_15",
+      "name": "goi",
+      "type": "currency",
+      "required": false,
+      "description": "Total Revenue − Operating Expenses",
+      "displayLabel": "Gross Operating Income (GOI)"
+    },
+    {
+      "id": "field_1763930691069_16",
+      "name": "gop",
+      "type": "currency",
+      "required": false,
+      "description": "GOI − Undistributed Operating Expenses",
+      "displayLabel": "Gross Operating Profit (GOP)"
+    },
+    {
+      "id": "field_1763930691069_17",
+      "name": "reported_ebitda",
+      "type": "currency",
+      "required": false,
+      "description": "Hotel-defined EBITDA before normalization",
+      "displayLabel": "Reported EBITDA"
+    },
+    {
+      "id": "field_1763930691069_18",
+      "name": "adjustment_notes",
+      "type": "text",
+      "required": false,
+      "description": "Details on IFRS adjustments, FF&E addbacks, or special rules applied",
+      "displayLabel": "Adjustment Notes"
+    },
+    {
+      "id": "field_1763937668179",
+      "name": "room_night_sold",
+      "type": "number",
+      "required": false,
+      "description": "Number of room nights the hotel was booked in the corresponding period. For example if the hotel has 20 rooms and for the month of Jan with 31 days, the max room night sold could be 31*20 = 620 room nights. The actual room nights sold depends on bookings that is made",
+      "displayLabel": "RNS"
+    }
+  ]
+},
+
+
+{
+  "table_name": "clean_currency_exchange_rates",
+  "fields": [
+    {
+      "id": "field_1763930793701_0",
+      "name": "from_currency",
+      "type": "text",
+      "required": true,
+      "description": "Base currency used for conversion (e.g., USD)",
+      "displayLabel": "From Currency"
+    },
+    {
+      "id": "field_1763930793701_1",
+      "name": "to_currency",
+      "type": "text",
+      "required": true,
+      "description": "Target currency for conversion (e.g., INR)",
+      "displayLabel": "To Currency"
+    },
+    {
+      "id": "field_1763930793701_2",
+      "name": "average_exchange_rate",
+      "type": "number",
+      "required": true,
+      "description": "Average conversion value for the period",
+      "displayLabel": "Average Exchange Rate"
+    },
+    {
+      "id": "field_1763930793701_3",
+      "name": "month_start_date",
+      "type": "date",
+      "required": true,
+      "description": "Start date of the month the exchange rate applies to",
+      "displayLabel": "Month Start Date"
+    },
+    {
+      "id": "field_1763930793701_4",
+      "name": "days_in_month",
+      "type": "number",
+      "required": true,
+      "description": "Number of days used for financial prorating and reporting purposes",
+      "displayLabel": "Days in Month"
+    }
+  ]
+}
