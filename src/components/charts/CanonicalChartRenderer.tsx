@@ -51,6 +51,7 @@ export interface ChartConfig {
   showLegend: boolean;
   showTooltip: boolean;
   showDataLabels?: boolean;
+  showOriginalValues?: boolean;
 }
 
 interface CanonicalChartRendererProps {
@@ -208,13 +209,16 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
 
     const currency = getCurrencyForSeries(seriesId);
     
-    // For tooltips, show both scaled and original values for clarity
+    // For tooltips, show both scaled and original values for clarity (if enabled)
     if (axis.scale && axis.scale !== 'auto') {
       const scaledFormatted = formatAxisValue(value, axis, currency);
-      const originalFormatted = axis.format === 'currency' 
-        ? formatCurrency(value, currency || 'USD')
-        : formatNumber(value);
-      return `${scaledFormatted} (${originalFormatted})`;
+      if (config.showOriginalValues) {
+        const originalFormatted = axis.format === 'currency' 
+          ? formatCurrency(value, currency || 'USD')
+          : formatNumber(value);
+        return `${scaledFormatted} (${originalFormatted})`;
+      }
+      return scaledFormatted;
     }
     
     return formatAxisValue(value, axis, currency);
