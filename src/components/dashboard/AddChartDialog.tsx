@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Play, Wand2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Play, Wand2, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { ChartRenderer } from '@/components/charts/ChartRenderer';
 import { CanonicalChartRenderer } from '@/components/charts/CanonicalChartRenderer';
 import { supabase } from '@/integrations/supabase/client';
@@ -46,6 +46,7 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
   const [showTooltip, setShowTooltip] = useState(true);
   const [isExecuting, setIsExecuting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRefreshingPreview, setIsRefreshingPreview] = useState(false);
   const [queryResult, setQueryResult] = useState<any[]>([]);
   const [chartConfig, setChartConfig] = useState<any>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -326,87 +327,229 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
           queryResult,
           cleanedQuery: sqlQuery,
           sqlQuery,
+          chartType, // Pass the selected chart type to AI
         },
       });
 
       if (response.error) throw response.error;
 
       const { config: generatedConfig, data: processedData } = response.data;
-      
-      // Update form fields with AI-generated config
-      setChartType(generatedConfig.chartType);
-      setXAxis(generatedConfig.xLabel || generatedConfig.xKey);
-      if (generatedConfig.yAxes && generatedConfig.yAxes.length > 0) {
-        setYAxis(generatedConfig.yAxes[0].label || '');
-      }
-      setShowLegend(generatedConfig.showLegend ?? true);
-      setShowTooltip(generatedConfig.showTooltip ?? true);
-      
-      // Store the full config
-      setChartConfig(generatedConfig);
-      
+
       // Update data if AI processed it differently
       if (processedData && processedData.length > 0) {
         setQueryResult(processedData);
         setIsCanonicalData(processedData.length > 0 && 'metric_name' in processedData[0] && 'entity_name' in processedData[0] && 'metric_value' in processedData[0]);
       }
 
-      // Update enhanced config with AI results
+      // Determine if we're working with canonical data
+      const currentData = processedData || queryResult;
+      const isCanonical = currentData.length > 0 && 'metric_name' in currentData[0] && 'entity_name' in currentData[0];
+
+      // Extract available columns for form validation
+      const availableColumns = currentData.length > 0 ? Object.keys(currentData[0]) : [];
+
+      // Generate comprehensive enhanced config from AI response
+      const enhancedSeries = generatedConfig.series ? generatedConfig.series.map((s: any, index: number) => {
+        // For canonical data, use metric_value as dataKey, otherwise use the series dataKey or find appropriate column
+        const dataKey = isCanonical ? 'metric_value' :
+          (s.dataKey || s.metric_name || availableColumns.find(col => col !== (generatedConfig.xKey || generatedConfig.xAxis)) || availableColumns[0] || '');
+
+        return {
+          id: s.id || `series_${index}`,
+          dataKey,
+          label: s.label || s.name || `Series ${index + 1}`,
+          type: s.type || chartType === 'combo' ? (index % 2 === 0 ? 'bar' : 'line') : chartType === 'bar' ? 'bar' : chartType === 'line' ? 'line' : 'area',
+          yAxisId: s.yAxisId || 'left',
+          color: s.color || `hsl(var(--chart-${index + 1}))`,
+          stackId: s.stackId || undefined,
+          // Store canonical fields for proper saving
+          metric_name: s.metric_name || (isCanonical ? s.label : undefined),
+          entity_name: s.entity_name || (isCanonical ? s.entity_name : undefined),
+        };
+      }) : [];
+
+      // Generate Y axes from AI response or create defaults
+      const enhancedYAxes = generatedConfig.yAxes ? generatedConfig.yAxes.map((axis: any, index: number) => ({
+        id: axis.id || (index === 0 ? 'left' : 'right'),
+        label: axis.label || (index === 0 ? 'Value' : ''),
+        type: axis.type || 'linear',
+        scale: axis.scale || 'auto',
+        format: axis.format || 'number',
+        decimals: axis.decimals || 0,
+      })) : [
+        {
+          id: 'left',
+          label: generatedConfig.yAxis || 'Value',
+          type: 'linear' as 'linear' | 'log',
+          scale: 'auto' as 'auto' | 'thousands' | 'lakhs' | 'millions' | 'crores',
+          format: 'number' as 'number' | 'currency' | 'percentage',
+          decimals: 0,
+        },
+        {
+          id: 'right',
+          label: '',
+          type: 'linear' as 'linear' | 'log',
+          scale: 'auto' as 'auto' | 'thousands' | 'lakhs' | 'millions' | 'crores',
+          format: 'number' as 'number' | 'currency' | 'percentage',
+          decimals: 0,
+        },
+      ];
+
+      // Update enhanced config with comprehensive AI-generated configuration
       setEnhancedConfig({
         title: generatedConfig.title || chartTitle || '',
         xAxis: {
-          key: generatedConfig.xKey || generatedConfig.xAxis || '',
-          label: generatedConfig.xLabel || '',
-          type: generatedConfig.xAxisType || 'category',
+          key: generatedConfig.xKey || generatedConfig.xAxis || (isCanonical ? 'period' : availableColumns[0] || ''),
+          label: generatedConfig.xLabel || generatedConfig.xAxis || 'X Axis',
+          type: generatedConfig.xAxisType || (isCanonical ? 'time' : 'category'),
         },
-        yAxes: generatedConfig.yAxes || [
-          {
-            id: 'left',
-            label: generatedConfig.yAxis || '',
-            type: 'linear',
-            scale: 'auto',
-            format: 'number',
-            decimals: 0,
-          },
-          {
-            id: 'right',
-            label: '',
-            type: 'linear',
-            scale: 'auto',
-            format: 'number',
-            decimals: 0,
-          },
-        ],
-        series: generatedConfig.series ? generatedConfig.series.map((s: any, index: number) => ({
-          id: s.id || `series_${index}`,
-          dataKey: processedData && processedData.length > 0 && 'metric_name' in processedData[0] ? 'metric_value' : (s.dataKey || s.metric_name || 'metric_value'),
-          label: s.label || `Series ${index + 1}`,
-          type: s.type || 'bar',
-          yAxisId: s.yAxisId || 'left',
-          color: s.color || `hsl(var(--chart-${index + 1}))`,
-          // Store canonical fields for proper saving
-          metric_name: s.metric_name,
-          entity_name: s.entity_name,
-        })) : [],
+        yAxes: enhancedYAxes,
+        series: enhancedSeries,
         showLegend: generatedConfig.showLegend ?? true,
         showTooltip: generatedConfig.showTooltip ?? true,
       });
-      
+
+      // Update basic form fields
+      setChartType(generatedConfig.chartType || chartType);
+      setXAxis(generatedConfig.xKey || generatedConfig.xAxis || enhancedConfig.xAxis.key);
+      if (enhancedYAxes.length > 0) {
+        setYAxis(enhancedYAxes[0].label);
+      }
+      setShowLegend(generatedConfig.showLegend ?? true);
+      setShowTooltip(generatedConfig.showTooltip ?? true);
+
+      // Create compatible chart config for preview
+      const chartSeries = enhancedSeries.map((series, index) => ({
+        id: series.id,
+        dataKey: series.dataKey,
+        name: series.label,
+        type: series.type,
+        yAxisId: series.yAxisId,
+        color: series.color,
+        stackId: series.stackId,
+        metric_name: series.metric_name,
+        entity_name: series.entity_name,
+        label: series.label,
+      }));
+
+      const config = {
+        chartType: generatedConfig.chartType || chartType,
+        title: generatedConfig.title || chartTitle,
+        showLegend: generatedConfig.showLegend ?? true,
+        showTooltip: generatedConfig.showTooltip ?? true,
+        lastRefreshed: new Date().toISOString(),
+        lastResult: currentData,
+        xKey: enhancedConfig.xAxis.key,
+        xLabel: enhancedConfig.xAxis.label,
+        xAxisType: enhancedConfig.xAxis.type,
+        yAxes: enhancedYAxes,
+        series: chartSeries,
+        xAxis: enhancedConfig.xAxis.key,
+        yAxis: enhancedYAxes.find(axis => axis.id === 'left')?.label || '',
+      };
+
+      // Store the full config for preview
+      setChartConfig(config);
+
       setShowPreview(true);
       setActiveTab('config'); // Switch to config tab to show the results
 
       toast({
-        title: 'Chart generated',
-        description: 'AI has generated the chart configuration and populated the form fields',
+        title: 'Chart configuration generated',
+        description: `AI has created a ${generatedConfig.chartType || chartType} chart with ${enhancedSeries.length} series`,
       });
     } catch (error) {
+      console.error('AI generation error:', error);
       toast({
         title: 'Generation failed',
-        description: error instanceof Error ? error.message : 'Failed to generate chart',
+        description: error instanceof Error ? error.message : 'Failed to generate chart configuration',
         variant: 'destructive',
       });
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const refreshPreview = async () => {
+    setIsRefreshingPreview(true);
+    try {
+      // Re-execute the query to refresh the data if needed
+      if (sqlQuery?.trim() && queryResult.length === 0) {
+        await executeQuery();
+      }
+
+      // Generate chart config from current enhanced config state (like generateChartConfig does)
+      if (queryResult.length > 0) {
+        // Create compatible chart config from enhanced config
+        const chartSeries = enhancedConfig.series.map((series, index) => ({
+          id: series.id || `series_${index}`,
+          dataKey: series.dataKey, // For ChartRenderer
+          name: series.label || series.dataKey, // For ChartRenderer
+          type: series.type,
+          yAxisId: series.yAxisId,
+          color: series.color,
+          stackId: series.stackId, // For stacking
+          // Canonical format fields - use configured values or fall back to dataKey/label
+          metric_name: series.metric_name || (isCanonicalData ? series.dataKey : series.dataKey),
+          entity_name: series.entity_name || (isCanonicalData ? series.label : undefined),
+          label: series.label,
+        }));
+
+        const config = {
+          // Basic properties
+          chartType,
+          title: enhancedConfig.title || chartTitle,
+          showLegend: enhancedConfig.showLegend,
+          showTooltip: enhancedConfig.showTooltip,
+          lastRefreshed: new Date().toISOString(),
+          lastResult: queryResult,
+
+          // X Axis configuration
+          xKey: enhancedConfig.xAxis.key,
+          xLabel: enhancedConfig.xAxis.label,
+          xAxisType: enhancedConfig.xAxis.type,
+
+          // Y Axes configuration - convert to canonical format
+          yAxes: enhancedConfig.yAxes.map(axis => ({
+            id: axis.id,
+            label: axis.label,
+            type: axis.format === 'percentage' ? 'percentage' : 'absolute',
+            format: axis.format,
+            decimals: axis.decimals,
+            scale: axis.scale,
+          })),
+
+          // Series configuration - use format that works for both renderers
+          series: chartSeries,
+
+          // Legacy compatibility
+          xAxis: enhancedConfig.xAxis.key,
+          yAxis: enhancedConfig.yAxes.find(axis => axis.id === 'left')?.label || '',
+        };
+
+        // Update chartConfig state for preview (temporary, not saved)
+        setChartConfig(config);
+
+        toast({
+          title: 'Preview updated',
+          description: 'Chart preview has been updated with current configuration',
+        });
+      } else {
+        toast({
+          title: 'No data available',
+          description: 'Please execute a query first to see the preview',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error refreshing preview:', error);
+      toast({
+        title: 'Refresh failed',
+        description: error instanceof Error ? error.message : 'Failed to refresh preview',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefreshingPreview(false);
     }
   };
 
@@ -525,11 +668,9 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
 
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
+            <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
               <TabsTrigger value="query">Query</TabsTrigger>
-              <TabsTrigger value="config">Configuration</TabsTrigger>
-              <TabsTrigger value="preview">Preview</TabsTrigger>
-              <TabsTrigger value="save">Save</TabsTrigger>
+              <TabsTrigger value="config">Configuration & Preview</TabsTrigger>
             </TabsList>
 
             <div className="flex-1 overflow-auto mt-4 px-1">
@@ -571,9 +712,28 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
                   </Badge>
                 )}
               </div>
+
+              {/* Raw Data JSON Display */}
+              {queryResult.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Raw Data Series JSON</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="max-h-[300px] overflow-auto">
+                      <pre className="text-xs bg-muted p-3 rounded border font-mono whitespace-pre-wrap">
+                        {JSON.stringify(queryResult, null, 2)}
+                      </pre>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
-            <TabsContent value="config" className="space-y-4 overflow-auto">
+            <TabsContent value="config" className="h-full">
+              <div className="flex h-full gap-4">
+                {/* Left Pane - Configuration Form (Scrollable) */}
+                <div className="flex-1 space-y-4 overflow-auto pr-2">
               {/* Chart Title */}
               <div className="space-y-2">
                 <Label>Chart Title</Label>
@@ -943,71 +1103,78 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
                   Generate with AI
                 </Button>
               </div>
-            </TabsContent>
+                </div>
 
-            <TabsContent value="preview" className="space-y-4">
-              {chartConfig ? (
-                <div className="space-y-4">
-                  <div className="text-sm text-muted-foreground">
-                    {queryResult.length > 0 
-                      ? `Query returned ${queryResult.length} rows`
-                      : editChart 
-                        ? `Showing saved chart data (${chartConfig?.lastResult?.length || 0} rows)`
-                        : 'Chart configuration ready - execute query to see data'
-                    }
-                  </div>
-
-                  {(queryResult.length > 0 || (chartConfig.lastResult && chartConfig.lastResult.length > 0)) ? (
-                    chartConfig.series && chartConfig.yAxes ? (
-                      <CanonicalChartRenderer
-                        config={chartConfig}
-                        data={queryResult.length > 0 ? queryResult : chartConfig.lastResult}
-                      />
-                    ) : (
-                      <ChartRenderer
-                        type={chartType}
-                        data={queryResult.length > 0 ? queryResult : chartConfig.lastResult}
-                        config={chartConfig}
-                      />
-                    )
-                  ) : (
-                    <div className="flex items-center justify-center h-64 text-muted-foreground border-2 border-dashed border-muted-foreground/25 rounded-lg">
-                      <div className="text-center">
-                        <div className="text-lg font-medium mb-2">Chart Preview</div>
-                        <div className="text-sm">
-                          {editChart 
-                            ? 'Execute the query to see the chart with current data'
-                            : 'Execute a query to see the chart preview'
-                          }
-                        </div>
-                      </div>
+                {/* Right Pane - Preview (Fixed) */}
+                <div className="w-1/2 border-l pl-4">
+                  <div className="h-full flex flex-col">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium">Chart Preview</h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={refreshPreview}
+                        disabled={isRefreshingPreview || !sqlQuery?.trim()}
+                        className="flex items-center gap-2"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${isRefreshingPreview ? 'animate-spin' : ''}`} />
+                        Refresh
+                      </Button>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  Generate a chart configuration to see the preview
-                </div>
-              )}
-            </TabsContent>
+                    
+                    <div className="flex-1">
+                      {chartConfig ? (
+                        <div className="space-y-4">
+                          <div className="text-sm text-muted-foreground">
+                            {queryResult.length > 0 
+                              ? `Query returned ${queryResult.length} rows`
+                              : editChart 
+                                ? `Showing saved chart data (${chartConfig?.lastResult?.length || 0} rows)`
+                                : 'Chart configuration ready - execute query to see data'
+                            }
+                          </div>
 
-            <TabsContent value="save" className="space-y-4">
-              <div className="space-y-4">
-                <div className="p-4 border rounded-lg space-y-2">
-                  <h4 className="font-medium">Chart Summary</h4>
-                  <div className="text-sm space-y-1">
-                    <div><strong>Title:</strong> {chartTitle || 'Not set'}</div>
-                    <div><strong>Type:</strong> {chartType}</div>
-                    <div><strong>Data:</strong> {queryResult.length} rows</div>
-                    <div><strong>Query:</strong> {sqlQuery ? 'Set' : 'Not set'}</div>
+                          {(queryResult.length > 0 || (chartConfig.lastResult && chartConfig.lastResult.length > 0)) ? (
+                            chartConfig.series && chartConfig.yAxes ? (
+                              <CanonicalChartRenderer
+                                config={chartConfig}
+                                data={queryResult.length > 0 ? queryResult : chartConfig.lastResult}
+                              />
+                            ) : (
+                              <ChartRenderer
+                                type={chartType}
+                                data={queryResult.length > 0 ? queryResult : chartConfig.lastResult}
+                                config={chartConfig}
+                              />
+                            )
+                          ) : (
+                            <div className="flex items-center justify-center h-64 text-muted-foreground border-2 border-dashed border-muted-foreground/25 rounded-lg">
+                              <div className="text-center">
+                                <div className="text-lg font-medium mb-2">Chart Preview</div>
+                                <div className="text-sm">
+                                  {editChart 
+                                    ? 'Execute the query to see the chart with current data'
+                                    : 'Execute a query to see the chart preview'
+                                  }
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center h-64 text-muted-foreground border-2 border-dashed border-muted-foreground/25 rounded-lg">
+                          <div className="text-center">
+                            <div className="text-lg font-medium mb-2">Chart Preview</div>
+                            <div className="text-sm">Generate a chart configuration to see the preview</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-
-                <div className="text-sm text-muted-foreground">
-                  Click "Save Chart" to add this chart to your dashboard. You can refresh it anytime to update with new data.
                 </div>
               </div>
             </TabsContent>
+
           </div>
           </Tabs>
         </div>

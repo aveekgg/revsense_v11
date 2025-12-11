@@ -35,6 +35,7 @@ export interface SeriesConfig {
   color: string;
   label?: string;          // legend label
   lineType?: 'monotone' | 'linear' | 'step';  // line interpolation type
+  stackId?: string;        // for stacking bars/areas
 }
 
 export interface ChartConfig {
@@ -327,7 +328,8 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
                 yAxisId: s.yAxisId,
                 fill: s.color,
                 stroke: s.color,
-                strokeWidth: 0
+                strokeWidth: 0,
+                ...(s.stackId && { stackId: s.stackId })
               };
 
               return <Bar {...props} />;
@@ -348,7 +350,8 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
                 yAxisId: s.yAxisId,
                 stroke: s.color,
                 fill: s.color,
-                fillOpacity: 0.6
+                fillOpacity: 0.6,
+                ...(s.stackId && { stackId: s.stackId })
               };
 
               return <Area {...props} type={s.lineType || 'linear'} />;
