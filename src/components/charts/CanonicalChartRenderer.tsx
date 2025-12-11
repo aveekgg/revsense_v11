@@ -23,7 +23,10 @@ export interface AxisConfig {
   type: 'absolute' | 'percentage';
   format?: 'currency' | 'number' | 'percentage';
   decimals?: number;
-  scale?: 'auto' | 'thousands' | 'lakhs' | 'millions' | 'crores';
+  scale?: 'auto' | 'thousands' | 'lakhs' | 'millions' | 'crores' | 'billion' | 'sci_custom';
+  min?: number;
+  max?: number;
+  sciExponent?: number;
 }
 
 export interface SeriesConfig {
@@ -69,7 +72,7 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
   }
 
   // Utility function to scale values based on axis configuration
-  const scaleValue = (value: number, scale?: string): number => {
+  const scaleValue = (value: number, scale?: string, sciExponent?: number): number => {
     switch (scale) {
       case 'thousands':
         return value / 1000;
@@ -79,13 +82,23 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
         return value / 1000000;
       case 'crores':
         return value / 10000000;
+      case 'billion':
+        return value / 1000000000;
+      case 'sci_custom':
+        return sciExponent ? value / Math.pow(10, sciExponent) : value;
       default:
         return value;
     }
   };
 
   // Utility function to get scale suffix for axis labels
-  const getScaleSuffix = (scale?: string): string => {
+  // Convert number to Unicode superscript
+  const toSuperscript = (num: number): string => {
+    const superscriptDigits = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+    return num.toString().split('').map(digit => superscriptDigits[parseInt(digit)]).join('');
+  };
+
+  const getScaleSuffix = (scale?: string, sciExponent?: number): string => {
     switch (scale) {
       case 'thousands':
         return 'K';
@@ -95,6 +108,10 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
         return 'M';
       case 'crores':
         return 'Cr';
+      case 'billion':
+        return 'B';
+      case 'sci_custom':
+        return sciExponent ? `×10${toSuperscript(sciExponent)}` : '';
       default:
         return '';
     }
@@ -174,12 +191,12 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
   // Format axis values based on axis config
   const formatAxisValue = (value: number, axis: AxisConfig, currency?: string): string => {
     // Apply scaling first
-    const scaledValue = scaleValue(value, axis.scale);
-    const suffix = getScaleSuffix(axis.scale);
+    const scaledValue = scaleValue(value, axis.scale, axis.sciExponent);
     
     if (axis.format === 'currency') {
       const formatted = formatCurrency(scaledValue, currency || 'USD');
-      return suffix ? `${formatted}${suffix}` : formatted;
+      // For scientific notation, don't add suffix here - it's in the axis label
+      return axis.scale === 'sci_custom' ? formatted : (getScaleSuffix(axis.scale, axis.sciExponent) ? `${formatted}${getScaleSuffix(axis.scale, axis.sciExponent)}` : formatted);
     }
     if (axis.format === 'percentage') {
       return `${scaledValue.toFixed(axis.decimals ?? 1)}%`;
@@ -190,7 +207,8 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
       minimumFractionDigits: decimals > 0 ? 1 : 0,
       maximumFractionDigits: decimals,
     });
-    return suffix ? `${formatted}${suffix}` : formatted;
+    // For scientific notation, don't add suffix here - it's in the axis label
+    return axis.scale === 'sci_custom' ? formatted : (getScaleSuffix(axis.scale, axis.sciExponent) ? `${formatted}${getScaleSuffix(axis.scale, axis.sciExponent)}` : formatted);
   };
 
   // Format tooltip values based on series type
@@ -211,7 +229,17 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
     
     // For tooltips, show both scaled and original values for clarity (if enabled)
     if (axis.scale && axis.scale !== 'auto') {
-      const scaledFormatted = formatAxisValue(value, axis, currency);
+      let scaledFormatted = formatAxisValue(value, axis, currency);
+      
+      // For scientific notation, show as "X * 10^n" format
+      if (axis.scale === 'sci_custom' && axis.sciExponent) {
+        const scaledValue = scaleValue(value, axis.scale, axis.sciExponent);
+        const coefficient = axis.format === 'currency' 
+          ? formatCurrency(scaledValue, currency || 'USD')
+          : scaledValue.toLocaleString('en-US', { maximumFractionDigits: axis.decimals ?? 2 });
+        scaledFormatted = `${coefficient} × 10${toSuperscript(axis.sciExponent)}`;
+      }
+      
       if (config.showOriginalValues) {
         const originalFormatted = axis.format === 'currency' 
           ? formatCurrency(value, currency || 'USD')
@@ -264,7 +292,9 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
             // Enhanced axis label with scale suffix
             const axisLabel = axis.label ? 
               (axis.scale && axis.scale !== 'auto' 
-                ? `${axis.label} (${getScaleSuffix(axis.scale)})`
+                ? axis.scale === 'sci_custom' && axis.sciExponent
+                  ? `${axis.label} × 10${toSuperscript(axis.sciExponent)}`
+                  : `${axis.label} (${getScaleSuffix(axis.scale, axis.sciExponent)})`
                 : axis.label)
               : undefined;
             
@@ -283,7 +313,15 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
                 className="text-xs"
                 stroke="hsl(var(--muted-foreground))"
                 tickFormatter={(value) => formatAxisValue(value, axis, axisCurrency)}
-                domain={['auto', 'auto']}  // Let Recharts auto-scale for better spacing
+                domain={
+                  axis.min !== undefined && axis.max !== undefined
+                    ? [axis.min, axis.max]
+                    : axis.min !== undefined
+                    ? [axis.min, 'auto']
+                    : axis.max !== undefined
+                    ? ['auto', axis.max]
+                    : ['auto', 'auto']
+                }
               />
             );
           })}
@@ -349,9 +387,14 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
                   {config.showDataLabels && (
                     <LabelList 
                       dataKey={dataKey} 
-                      position="top" 
+                      position={s.stackId ? "center" : "top"} 
                       formatter={(value: number) => formatTooltipValue(value, dataKey)}
-                      style={{ fontSize: '12px', fill: s.color }}
+                      style={{ 
+                        fontSize: '12px', 
+                        fill: s.stackId ? 'white' : s.color,
+                        fontWeight: s.stackId ? 'bold' : 'normal',
+                        textShadow: s.stackId ? '1px 1px 2px rgba(0,0,0,0.7)' : 'none'
+                      }}
                     />
                   )}
                 </Bar>
@@ -412,7 +455,7 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
                 <Line 
                   {...props} 
                   type={s.lineType || 'linear'}  // Use linear for straight lines, or monotone for curves
-                  dot={{ r: 3, strokeWidth: 2, fill: s.color }}
+                  dot={config.showDataLabels ? false : { r: 3, strokeWidth: 2, fill: s.color }}
                   activeDot={{ r: 5, strokeWidth: 0, fill: s.color }}
                   label={config.showDataLabels ? { 
                     fill: s.color, 

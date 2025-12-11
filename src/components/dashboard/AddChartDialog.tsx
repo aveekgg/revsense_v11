@@ -67,17 +67,23 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
         id: 'left',
         label: '',
         type: 'linear' as 'linear' | 'log',
-        scale: 'auto' as 'auto' | 'thousands' | 'lakhs' | 'millions' | 'crores',
+        scale: 'auto' as 'auto' | 'thousands' | 'lakhs' | 'millions' | 'crores' | 'billion' | 'sci_custom',
         format: 'number' as 'number' | 'currency' | 'percentage',
         decimals: 0,
+        min: undefined,
+        max: undefined,
+        sciExponent: undefined,
       },
       {
         id: 'right',
         label: '',
         type: 'linear' as 'linear' | 'log',
-        scale: 'auto' as 'auto' | 'thousands' | 'lakhs' | 'millions' | 'crores',
+        scale: 'auto' as 'auto' | 'thousands' | 'lakhs' | 'millions' | 'crores' | 'billion' | 'sci_custom',
         format: 'number' as 'number' | 'currency' | 'percentage',
         decimals: 0,
+        min: undefined,
+        max: undefined,
+        sciExponent: undefined,
       },
     ],
     series: [] as Array<{
@@ -203,6 +209,9 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
               scale: 'auto',
               format: 'number',
               decimals: 0,
+              min: undefined,
+              max: undefined,
+              sciExponent: undefined,
             },
             {
               id: 'right',
@@ -211,6 +220,9 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
               scale: 'auto',
               format: 'number',
               decimals: 0,
+              min: undefined,
+              max: undefined,
+              sciExponent: undefined,
             },
           ],
           series: [],
@@ -221,7 +233,16 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
         });
       }
     }
-  }, [open, editChart, isCanonicalData]);
+  }, [open, editChart]);
+
+  // Update canonical data detection when query results change
+  useEffect(() => {
+    if (queryResult.length > 0) {
+      setIsCanonicalData('metric_name' in queryResult[0] && 'entity_name' in queryResult[0] && 'metric_value' in queryResult[0]);
+    } else {
+      setIsCanonicalData(false);
+    }
+  }, [queryResult]);
 
   // Helper functions for enhanced config
   const updateEnhancedConfig = (updates: Partial<typeof enhancedConfig>) => {
@@ -529,6 +550,9 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
             format: axis.format,
             decimals: axis.decimals,
             scale: axis.scale,
+            min: axis.min,
+            max: axis.max,
+            sciExponent: axis.sciExponent,
           })),
 
           // Series configuration - use format that works for both renderers
@@ -624,6 +648,9 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
         format: axis.format,
         decimals: axis.decimals,
         scale: axis.scale,
+        min: axis.min,
+        max: axis.max,
+        sciExponent: axis.sciExponent,
       })),
 
       // Series configuration - use format that works for both renderers
@@ -886,13 +913,28 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="auto">Auto</SelectItem>
-                              <SelectItem value="thousands">Thousands</SelectItem>
-                              <SelectItem value="lakhs">Lakhs</SelectItem>
-                              <SelectItem value="millions">Millions</SelectItem>
-                              <SelectItem value="crores">Crores</SelectItem>
+                              <SelectItem value="thousands">Thousands (K)</SelectItem>
+                              <SelectItem value="lakhs">Lakhs (L)</SelectItem>
+                              <SelectItem value="millions">Millions (M)</SelectItem>
+                              <SelectItem value="crores">Crores (Cr)</SelectItem>
+                              <SelectItem value="billion">Billions (B)</SelectItem>
+                              <SelectItem value="sci_custom">Custom 10ⁿ</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
+                        {axis.scale === 'sci_custom' && (
+                          <div className="space-y-2">
+                            <Label className="text-xs">Exponent (n)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="15"
+                              value={axis.sciExponent || ''}
+                              onChange={(e) => updateYAxis(axis.id, { sciExponent: parseInt(e.target.value) || 0 })}
+                              placeholder="e.g., 6 for 10⁶"
+                            />
+                          </div>
+                        )}
                         <div className="space-y-2">
                           <Label className="text-xs">Format</Label>
                           <Select
@@ -919,6 +961,26 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
                           value={axis.decimals}
                           onChange={(e) => updateYAxis(axis.id, { decimals: parseInt(e.target.value) || 0 })}
                         />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-xs">Min Value (optional)</Label>
+                          <Input
+                            type="number"
+                            placeholder="Auto"
+                            value={axis.min ?? ''}
+                            onChange={(e) => updateYAxis(axis.id, { min: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">Max Value (optional)</Label>
+                          <Input
+                            type="number"
+                            placeholder="Auto"
+                            value={axis.max ?? ''}
+                            onChange={(e) => updateYAxis(axis.id, { max: e.target.value === '' ? undefined : parseFloat(e.target.value) })}
+                          />
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1167,18 +1229,24 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
                           </div>
 
                           {(queryResult.length > 0 || (chartConfig.lastResult && chartConfig.lastResult.length > 0)) ? (
-                            chartConfig.series && chartConfig.yAxes ? (
-                              <CanonicalChartRenderer
-                                config={chartConfig}
-                                data={queryResult.length > 0 ? queryResult : chartConfig.lastResult}
-                              />
-                            ) : (
-                              <ChartRenderer
-                                type={chartType}
-                                data={queryResult.length > 0 ? queryResult : chartConfig.lastResult}
-                                config={chartConfig}
-                              />
-                            )
+                            (() => {
+                              const displayData = queryResult.length > 0 ? queryResult : chartConfig.lastResult;
+                              const isDataCanonical = displayData && displayData.length > 0 && 
+                                'metric_name' in displayData[0] && 'entity_name' in displayData[0] && 'metric_value' in displayData[0];
+                              
+                              return isDataCanonical && chartConfig.series && chartConfig.yAxes ? (
+                                <CanonicalChartRenderer
+                                  config={chartConfig}
+                                  data={displayData}
+                                />
+                              ) : (
+                                <ChartRenderer
+                                  type={chartConfig.chartType || 'bar'}
+                                  data={displayData}
+                                  config={chartConfig}
+                                />
+                              );
+                            })()
                           ) : (
                             <div className="flex items-center justify-center h-64 text-muted-foreground border-2 border-dashed border-muted-foreground/25 rounded-lg">
                               <div className="text-center">

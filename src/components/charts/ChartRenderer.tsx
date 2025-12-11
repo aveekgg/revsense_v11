@@ -1,4 +1,4 @@
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, AreaChart, Area, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, AreaChart, Area, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, LabelList } from 'recharts';
 import { EnhancedDataTable } from '@/components/query-results/EnhancedDataTable';
 import { formatNumber, formatCurrency, formatPercentage } from '@/lib/formatters';
 
@@ -21,10 +21,21 @@ interface ChartRendererProps {
     title?: string;
     colors?: string[];
     series?: SeriesConfig[];
+    yAxes?: Array<{
+      id: 'left' | 'right';
+      min?: number;
+      max?: number;
+      scale?: string;
+      sciExponent?: number;
+    }>;
     format?: {
       type?: 'currency' | 'percentage' | 'number';
       decimals?: number;
     };
+    showDataLabels?: boolean;
+    showOriginalValues?: boolean;
+    showLegend?: boolean;
+    showTooltip?: boolean;
   };
 }
 
@@ -55,9 +66,61 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
 
   const { xAxis, yAxis, dataKey, series, format } = config;
 
+  // Utility function to scale values based on axis configuration
+  const scaleValue = (value: number, scale?: string, sciExponent?: number): number => {
+    switch (scale) {
+      case 'thousands':
+        return value / 1000;
+      case 'lakhs':
+        return value / 100000;
+      case 'millions':
+        return value / 1000000;
+      case 'crores':
+        return value / 10000000;
+      case 'billion':
+        return value / 1000000000;
+      case 'sci_custom':
+        return sciExponent ? value / Math.pow(10, sciExponent) : value;
+      default:
+        return value;
+    }
+  };
+
+  // Convert number to Unicode superscript
+  const toSuperscript = (num: number): string => {
+    const superscriptDigits = ['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
+    return num.toString().split('').map(digit => superscriptDigits[parseInt(digit)]).join('');
+  };
+
+  // Utility function to get scale suffix for display
+  const getScaleSuffix = (scale?: string, sciExponent?: number): string => {
+    switch (scale) {
+      case 'thousands':
+        return 'K';
+      case 'lakhs':
+        return 'L';
+      case 'millions':
+        return 'M';
+      case 'crores':
+        return 'Cr';
+      case 'billion':
+        return 'B';
+      case 'sci_custom':
+        return sciExponent ? `×10${toSuperscript(sciExponent)}` : '';
+      default:
+        return '';
+    }
+  };
+
   // Smart format values for charts based on field names
-  const formatChartValue = (value: any, fieldName?: string) => {
+  const formatChartValue = (value: any, fieldName?: string, axisConfig?: { scale?: string; sciExponent?: number }) => {
     if (value === null || value === undefined) return value;
+    
+    // Apply scaling if axis config is provided
+    let scaledValue = value;
+    if (axisConfig?.scale && axisConfig.scale !== 'auto') {
+      scaledValue = scaleValue(value, axisConfig.scale, axisConfig.sciExponent);
+    }
     
     // Use field name from context if available, otherwise use format config
     if (fieldName && typeof fieldName === 'string') {
@@ -66,37 +129,40 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
       
       if (lowerName.includes('percent') || lowerName.includes('rate') || 
           lowerName.includes('ratio') || lowerName.includes('occupancy')) {
-        return formatPercentage(value);
+        return formatPercentage(scaledValue);
       }
       
       if (lowerName.includes('revenue') || lowerName.includes('amount') || 
           lowerName.includes('price') || lowerName.includes('cost') ||
           lowerName.includes('total') || lowerName.includes('adr')) {
-        return formatCurrency(value);
+        return formatCurrency(scaledValue);
       }
       
-      return formatNumber(value, fieldName);
+      return formatNumber(scaledValue, fieldName);
     }
     
     // Fallback to config-based formatting
-    const num = Number(value);
+    const num = Number(scaledValue);
     if (isNaN(num)) return value;
     
     if (format?.type === 'currency') {
-      return formatCurrency(value);
+      const formatted = formatCurrency(value);
+      return axisConfig?.scale === 'sci_custom' ? formatted : (getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent) ? `${formatted}${getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent)}` : formatted);
     }
     if (format?.type === 'percentage') {
       return formatPercentage(value);
     }
     if (format?.type === 'number') {
-      return formatNumber(value);
+      const formatted = formatNumber(value);
+      return axisConfig?.scale === 'sci_custom' ? formatted : (getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent) ? `${formatted}${getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent)}` : formatted);
     }
     
-    return formatNumber(value);
+    const formatted = formatNumber(value);
+    return axisConfig?.scale === 'sci_custom' ? formatted : (getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent) ? `${formatted}${getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent)}` : formatted);
   };
 
   // Combo chart with multiple series and dual Y-axes
-  if (type === 'combo' && series && series.length > 0) {
+  if ((type === 'combo' || (series && series.length > 0)) && series && series.length > 0) {
     const hasRightAxis = series.some(s => s.yAxisId === 'right');
     
     // Validate series configuration
@@ -142,7 +208,21 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
             yAxisId="left"
             className="text-xs"
             stroke="hsl(var(--muted-foreground))"
-            tickFormatter={(value) => formatChartValue(value)}
+            tickFormatter={(value) => formatChartValue(value, undefined, config.yAxes?.find(axis => axis.id === 'left'))}
+            domain={
+              (() => {
+                const axis = config.yAxes?.find(axis => axis.id === 'left');
+                if (!axis) return ['auto', 'auto'];
+                
+                const min = axis.min !== undefined ? scaleValue(axis.min, axis.scale, axis.sciExponent) : undefined;
+                const max = axis.max !== undefined ? scaleValue(axis.max, axis.scale, axis.sciExponent) : undefined;
+                
+                if (min !== undefined && max !== undefined) return [min, max];
+                if (min !== undefined) return [min, 'auto'];
+                if (max !== undefined) return ['auto', max];
+                return ['auto', 'auto'];
+              })()
+            }
           />
           {hasRightAxis && (
             <YAxis 
@@ -150,19 +230,48 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
               orientation="right"
               className="text-xs"
               stroke="hsl(var(--muted-foreground))"
-              tickFormatter={(value) => formatChartValue(value)}
+              tickFormatter={(value) => formatChartValue(value, undefined, config.yAxes?.find(axis => axis.id === 'right'))}
+              domain={
+                (() => {
+                  const axis = config.yAxes?.find(axis => axis.id === 'right');
+                  if (!axis) return ['auto', 'auto'];
+                  
+                  const min = axis.min !== undefined ? scaleValue(axis.min, axis.scale, axis.sciExponent) : undefined;
+                  const max = axis.max !== undefined ? scaleValue(axis.max, axis.scale, axis.sciExponent) : undefined;
+                  
+                  if (min !== undefined && max !== undefined) return [min, max];
+                  if (min !== undefined) return [min, 'auto'];
+                  if (max !== undefined) return ['auto', max];
+                  return ['auto', 'auto'];
+                })()
+              }
             />
           )}
-          <Tooltip 
-            contentStyle={{ 
-              backgroundColor: 'hsl(var(--popover))',
-              border: '1px solid hsl(var(--border))',
-              borderRadius: '6px',
-              color: 'hsl(var(--popover-foreground))'
-            }}
-            formatter={formatChartValue}
-          />
-          <Legend wrapperStyle={{ paddingTop: '20px' }} />
+          {config?.showTooltip !== false && (
+            <Tooltip 
+              contentStyle={{ 
+                backgroundColor: 'hsl(var(--popover))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '6px',
+                color: 'hsl(var(--popover-foreground))'
+              }}
+              formatter={(value, name, props) => {
+                const axis = config.yAxes?.find(axis => axis.id === (props.payload?.yAxisId || 'left'));
+                const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+                if (axis?.scale === 'sci_custom' && axis.sciExponent && !isNaN(numValue)) {
+                  const scaledValue = scaleValue(numValue, axis.scale, axis.sciExponent);
+                  const coefficient = format?.type === 'currency' 
+                    ? formatCurrency(scaledValue)
+                    : scaledValue.toLocaleString('en-US', { maximumFractionDigits: 2 });
+                  return [`${coefficient} × 10${toSuperscript(axis.sciExponent)}`, typeof name === 'string' ? name : String(name)];
+                }
+                return [formatChartValue(value, typeof name === 'string' ? name : String(name), axis), typeof name === 'string' ? name : String(name)];
+              }}
+            />
+          )}
+          {config?.showLegend !== false && (
+            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+          )}
           {validSeries.map((s, idx) => {
             const seriesProps = {
               key: idx,
@@ -175,13 +284,52 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
             };
 
             if (s.type === 'bar') {
-              return <Bar {...seriesProps} />;
+              return (
+                <Bar {...seriesProps}>
+                  {config?.showDataLabels && (
+                    <LabelList 
+                      dataKey={s.dataKey} 
+                      position={s.stackId ? "center" : "top"} 
+                      formatter={(value: any) => formatChartValue(value, s.dataKey)}
+                      style={{ 
+                        fontSize: '12px', 
+                        fill: s.stackId ? 'white' : s.color || COLORS[idx % COLORS.length],
+                        fontWeight: s.stackId ? 'bold' : 'normal',
+                        textShadow: s.stackId ? '1px 1px 2px rgba(0,0,0,0.7)' : 'none'
+                      }}
+                    />
+                  )}
+                </Bar>
+              );
             }
             if (s.type === 'line') {
-              return <Line {...seriesProps} type="monotone" strokeWidth={2} />;
+              return (
+                <Line 
+                  {...seriesProps} 
+                  type="monotone" 
+                  strokeWidth={2}
+                  dot={config?.showDataLabels ? false : { r: 3, strokeWidth: 2, fill: s.color || COLORS[idx % COLORS.length] }}
+                  activeDot={{ r: 5, strokeWidth: 0, fill: s.color || COLORS[idx % COLORS.length] }}
+                  label={config?.showDataLabels ? { 
+                    fill: s.color || COLORS[idx % COLORS.length], 
+                    fontSize: 12, 
+                    formatter: (value: any) => formatChartValue(value, s.dataKey)
+                  } : undefined}
+                />
+              );
             }
             if (s.type === 'area') {
-              return <Area {...seriesProps} type="monotone" />;
+              return (
+                <Area 
+                  {...seriesProps} 
+                  type="monotone"
+                  label={config?.showDataLabels ? { 
+                    fill: s.color || COLORS[idx % COLORS.length], 
+                    fontSize: 12, 
+                    formatter: (value: any) => formatChartValue(value, s.dataKey)
+                  } : undefined}
+                />
+              );
             }
             return null;
           })}
@@ -215,7 +363,21 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
           <YAxis 
             className="text-xs"
             stroke="hsl(var(--muted-foreground))"
-            tickFormatter={(value) => formatChartValue(value)}
+            tickFormatter={(value) => formatChartValue(value, undefined, config.yAxes?.find(axis => axis.id === 'left'))}
+            domain={
+              (() => {
+                const axis = config.yAxes?.find(axis => axis.id === 'left');
+                if (!axis) return ['auto', 'auto'];
+                
+                const min = axis.min !== undefined ? scaleValue(axis.min, axis.scale, axis.sciExponent) : undefined;
+                const max = axis.max !== undefined ? scaleValue(axis.max, axis.scale, axis.sciExponent) : undefined;
+                
+                if (min !== undefined && max !== undefined) return [min, max];
+                if (min !== undefined) return [min, 'auto'];
+                if (max !== undefined) return ['auto', max];
+                return ['auto', 'auto'];
+              })()
+            }
           />
           <Tooltip 
             contentStyle={{ 
@@ -224,7 +386,18 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
               borderRadius: '6px',
               color: 'hsl(var(--popover-foreground))'
             }}
-            formatter={formatChartValue}
+            formatter={(value, name) => {
+              const axis = config.yAxes?.find(axis => axis.id === 'left');
+              const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+              if (axis?.scale === 'sci_custom' && axis.sciExponent && !isNaN(numValue)) {
+                const scaledValue = scaleValue(numValue, axis.scale, axis.sciExponent);
+                const coefficient = format?.type === 'currency' 
+                  ? formatCurrency(scaledValue)
+                  : scaledValue.toLocaleString('en-US', { maximumFractionDigits: 2 });
+                return [`${coefficient} × 10${toSuperscript(axis.sciExponent)}`, typeof name === 'string' ? name : String(name)];
+              }
+              return [formatChartValue(value, typeof name === 'string' ? name : String(name), axis), typeof name === 'string' ? name : String(name)];
+            }}
           />
           <Legend wrapperStyle={{ paddingTop: '20px' }} />
           {columnsToRender.map((column, idx) => (
@@ -256,7 +429,21 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
           <YAxis 
             className="text-xs"
             stroke="hsl(var(--muted-foreground))"
-            tickFormatter={(value) => formatChartValue(value)}
+            tickFormatter={(value) => formatChartValue(value, undefined, config.yAxes?.find(axis => axis.id === 'left'))}
+            domain={
+              (() => {
+                const axis = config.yAxes?.find(axis => axis.id === 'left');
+                if (!axis) return ['auto', 'auto'];
+                
+                const min = axis.min !== undefined ? scaleValue(axis.min, axis.scale, axis.sciExponent) : undefined;
+                const max = axis.max !== undefined ? scaleValue(axis.max, axis.scale, axis.sciExponent) : undefined;
+                
+                if (min !== undefined && max !== undefined) return [min, max];
+                if (min !== undefined) return [min, 'auto'];
+                if (max !== undefined) return ['auto', max];
+                return ['auto', 'auto'];
+              })()
+            }
           />
           <Tooltip 
             contentStyle={{ 
@@ -265,7 +452,18 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
               borderRadius: '6px',
               color: 'hsl(var(--popover-foreground))'
             }}
-            formatter={formatChartValue}
+            formatter={(value, name) => {
+              const axis = config.yAxes?.find(axis => axis.id === 'left');
+              const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+              if (axis?.scale === 'sci_custom' && axis.sciExponent && !isNaN(numValue)) {
+                const scaledValue = scaleValue(numValue, axis.scale, axis.sciExponent);
+                const coefficient = format?.type === 'currency' 
+                  ? formatCurrency(scaledValue)
+                  : scaledValue.toLocaleString('en-US', { maximumFractionDigits: 2 });
+                return [`${coefficient} × 10${toSuperscript(axis.sciExponent)}`, typeof name === 'string' ? name : String(name)];
+              }
+              return [formatChartValue(value, typeof name === 'string' ? name : String(name), axis), typeof name === 'string' ? name : String(name)];
+            }}
           />
           <Legend wrapperStyle={{ paddingTop: '20px' }} />
           <Line 
@@ -295,7 +493,21 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
           <YAxis 
             className="text-xs"
             stroke="hsl(var(--muted-foreground))"
-            tickFormatter={(value) => formatChartValue(value)}
+            tickFormatter={(value) => formatChartValue(value, undefined, config.yAxes?.find(axis => axis.id === 'left'))}
+            domain={
+              (() => {
+                const axis = config.yAxes?.find(axis => axis.id === 'left');
+                if (!axis) return ['auto', 'auto'];
+                
+                const min = axis.min !== undefined ? scaleValue(axis.min, axis.scale, axis.sciExponent) : undefined;
+                const max = axis.max !== undefined ? scaleValue(axis.max, axis.scale, axis.sciExponent) : undefined;
+                
+                if (min !== undefined && max !== undefined) return [min, max];
+                if (min !== undefined) return [min, 'auto'];
+                if (max !== undefined) return ['auto', max];
+                return ['auto', 'auto'];
+              })()
+            }
           />
           <Tooltip 
             contentStyle={{ 
@@ -304,7 +516,18 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
               borderRadius: '6px',
               color: 'hsl(var(--popover-foreground))'
             }}
-            formatter={formatChartValue}
+            formatter={(value, name) => {
+              const axis = config.yAxes?.find(axis => axis.id === 'left');
+              const numValue = typeof value === 'number' ? value : parseFloat(String(value));
+              if (axis?.scale === 'sci_custom' && axis.sciExponent && !isNaN(numValue)) {
+                const scaledValue = scaleValue(numValue, axis.scale, axis.sciExponent);
+                const coefficient = format?.type === 'currency' 
+                  ? formatCurrency(scaledValue)
+                  : scaledValue.toLocaleString('en-US', { maximumFractionDigits: 2 });
+                return [`${coefficient} × 10${toSuperscript(axis.sciExponent)}`, typeof name === 'string' ? name : String(name)];
+              }
+              return [formatChartValue(value, typeof name === 'string' ? name : String(name), axis), typeof name === 'string' ? name : String(name)];
+            }}
           />
           <Legend wrapperStyle={{ paddingTop: '20px' }} />
           <Area 
