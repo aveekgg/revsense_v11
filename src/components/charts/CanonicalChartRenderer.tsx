@@ -40,7 +40,7 @@ export interface SeriesConfig {
 
 export interface ChartConfig {
   chartType: ChartType;
-  xKey: 'period';
+  xKey: string;
   timeGrain: TimeGrain;
   xTimeFormat: 'MMM-yy' | 'Q-yy' | 'half-yy' | 'yyyy';
   title?: string;
@@ -120,9 +120,10 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
     }
   };
 
-  // Pivot canonical data for Recharts (group by period, spread metrics as columns)
+  // Pivot canonical data for Recharts (group by xKey, spread metrics as columns)
   const pivotedData = data.reduce((acc, row) => {
-    const existing = acc.find(r => r.period === row.period);
+    const xValue = row[config.xKey] || row.period;
+    const existing = acc.find(r => r.xValue === xValue);
     
     // Create unique key for this series (entity + metric)
     const key = row.entity_name 
@@ -137,8 +138,9 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
       }
     } else {
       const newRow: any = {
-        period: row.period,
-        periodLabel: formatPeriodLabel(row.period),
+        period: row.period, // Keep for sorting
+        xValue: xValue,
+        periodLabel: config.xKey === 'period' ? formatPeriodLabel(row.period) : xValue,
         [key]: row.metric_value
       };
       // Preserve currency for this series
