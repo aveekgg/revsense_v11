@@ -8,6 +8,7 @@ interface SeriesConfig {
   yAxisId?: 'left' | 'right';
   name?: string;
   color?: string;
+  stackId?: string;
 }
 
 interface ChartRendererProps {
@@ -170,6 +171,7 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
               yAxisId: s.yAxisId || 'left',
               fill: s.color || COLORS[idx % COLORS.length],
               stroke: s.color || COLORS[idx % COLORS.length],
+              ...(s.stackId && { stackId: s.stackId }),
             };
 
             if (s.type === 'bar') {

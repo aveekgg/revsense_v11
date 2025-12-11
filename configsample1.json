@@ -1,0 +1,142 @@
+{
+  "xKey": "period",
+  "title": "Monthly Total Revenue for Hotels in India and International (Last 6 Months)",
+  "yAxes": [
+    {
+      "id": "left",
+      "type": "absolute",
+      "label": "Total Revenue",
+      "scale": "millions",
+      "format": "currency"
+    }
+  ],
+  "series": [
+    {
+      "id": "anantara_maldives_revenue",
+      "type": "bar",
+      "color": "hsl(var(--chart-1))",
+      "label": "Anantara Maldives Total Revenue",
+      "yAxisId": "left",
+      "entity_name": "Anantara Maldives",
+      "metric_name": "total_revenue"
+    },
+    {
+      "id": "jw_marriott_pune_revenue",
+      "type": "bar",
+      "color": "hsl(var(--chart-2))",
+      "label": "JW Marriott Pune Total Revenue",
+      "yAxisId": "left",
+      "entity_name": "JW Marriott Pune",
+      "metric_name": "total_revenue"
+    }
+  ],
+  "chartType": "bar",
+  "timeGrain": "month",
+  "lastResult": [
+    {
+      "period": "2025-06-01",
+      "entity_name": "Anantara Maldives",
+      "metric_name": "total_revenue",
+      "metric_type": "absolute",
+      "metric_label": "Total Revenue = room_revenue + fnb_revenue + other_operating_revenue",
+      "metric_value": 80043110.08,
+      "period_grain": "month",
+      "reporting_currency": "USD"
+    },
+    {
+      "period": "2025-06-01",
+      "entity_name": "JW Marriott Pune",
+      "metric_name": "total_revenue",
+      "metric_type": "absolute",
+      "metric_label": "Total Revenue = room_revenue + fnb_revenue + other_operating_revenue",
+      "metric_value": 67526409.6,
+      "period_grain": "month",
+      "reporting_currency": "INR"
+    },
+    {
+      "period": "2025-07-01",
+      "entity_name": "Anantara Maldives",
+      "metric_name": "total_revenue",
+      "metric_type": "absolute",
+      "metric_label": "Total Revenue = room_revenue + fnb_revenue + other_operating_revenue",
+      "metric_value": 36710093.2,
+      "period_grain": "month",
+      "reporting_currency": "USD"
+    },
+    {
+      "period": "2025-07-01",
+      "entity_name": "JW Marriott Pune",
+      "metric_name": "total_revenue",
+      "metric_type": "absolute",
+      "metric_label": "Total Revenue = room_revenue + fnb_revenue + other_operating_revenue",
+      "metric_value": 63022541.68,
+      "period_grain": "month",
+      "reporting_currency": "INR"
+    },
+    {
+      "period": "2025-08-01",
+      "entity_name": "Anantara Maldives",
+      "metric_name": "total_revenue",
+      "metric_type": "absolute",
+      "metric_label": "Total Revenue = room_revenue + fnb_revenue + other_operating_revenue",
+      "metric_value": 43237483.17,
+      "period_grain": "month",
+      "reporting_currency": "USD"
+    },
+    {
+      "period": "2025-08-01",
+      "entity_name": "JW Marriott Pune",
+      "metric_name": "total_revenue",
+      "metric_type": "absolute",
+      "metric_label": "Total Revenue = room_revenue + fnb_revenue + other_operating_revenue",
+      "metric_value": 78179905.24,
+      "period_grain": "month",
+      "reporting_currency": "INR"
+    },
+    {
+      "period": "2025-09-01",
+      "entity_name": "Anantara Maldives",
+      "metric_name": "total_revenue",
+      "metric_type": "absolute",
+      "metric_label": "Total Revenue = room_revenue + fnb_revenue + other_operating_revenue",
+      "metric_value": 62303844.44,
+      "period_grain": "month",
+      "reporting_currency": "USD"
+    },
+    {
+      "period": "2025-09-01",
+      "entity_name": "JW Marriott Pune",
+      "metric_name": "total_revenue",
+      "metric_type": "absolute",
+      "metric_label": "Total Revenue = room_revenue + fnb_revenue + other_operating_revenue",
+      "metric_value": 71253292,
+      "period_grain": "month",
+      "reporting_currency": "INR"
+    },
+    {
+      "period": "2025-10-01",
+      "entity_name": "Anantara Maldives",
+      "metric_name": "total_revenue",
+      "metric_type": "absolute",
+      "metric_label": "Total Revenue = room_revenue + fnb_revenue + other_operating_revenue",
+      "metric_value": 34860632.4,
+      "period_grain": "month",
+      "reporting_currency": "USD"
+    },
+    {
+      "period": "2025-10-01",
+      "entity_name": "JW Marriott Pune",
+      "metric_name": "total_revenue",
+      "metric_type": "absolute",
+      "metric_label": "Total Revenue = room_revenue + fnb_revenue + other_operating_revenue",
+      "metric_value": 107737183.1,
+      "period_grain": "month",
+      "reporting_currency": "INR"
+    }
+  ],
+  "showLegend": true,
+  "description": "A comparison of the monthly total revenue for Indian and international hotels over the last 6 months.",
+  "showTooltip": true,
+  "xTimeFormat": "MMM-yy",
+  "lastRefreshed": "2025-11-28T13:02:47.465Z"
+}

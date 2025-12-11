@@ -49,8 +49,8 @@ export const useDashboardCharts = (dashboardId?: string) => {
         .order('position', { ascending: false })
         .limit(1);
 
-      const nextPosition = existingCharts && existingCharts.length > 0 
-        ? existingCharts[0].position + 1 
+      const nextPosition = existingCharts && existingCharts.length > 0
+        ? existingCharts[0].position + 1
         : 0;
 
       const { data, error } = await supabase
@@ -62,11 +62,11 @@ export const useDashboardCharts = (dashboardId?: string) => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['dashboard-charts', variables.dashboard_id] });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-charts'] });
       toast({
-        title: 'Saved to dashboard',
-        description: 'Query has been saved to your dashboard.',
+        title: 'Chart added',
+        description: 'Chart has been added to your dashboard.',
       });
     },
     onError: (error) => {
@@ -79,10 +79,12 @@ export const useDashboardCharts = (dashboardId?: string) => {
   });
 
   const updateChart = useMutation({
-    mutationFn: async ({ id, title, config }: { id: string; title?: string; config?: any }) => {
+    mutationFn: async ({ id, title, config, position, sql_query }: { id: string; title?: string; config?: any; position?: number; sql_query?: string }) => {
       const updates: any = {};
       if (title !== undefined) updates.title = title;
       if (config !== undefined) updates.config = config;
+      if (position !== undefined) updates.position = position;
+      if (sql_query !== undefined) updates.sql_query = sql_query;
 
       const { data, error } = await supabase
         .from('dashboard_charts')
@@ -181,6 +183,33 @@ export const useDashboardCharts = (dashboardId?: string) => {
     },
   });
 
+  const reorderCharts = useMutation({
+    mutationFn: async (chartUpdates: { id: string; position: number }[]) => {
+      const promises = chartUpdates.map(({ id, position }) =>
+        supabase
+          .from('dashboard_charts')
+          .update({ position })
+          .eq('id', id)
+      );
+
+      const results = await Promise.all(promises);
+      const errors = results.filter(result => result.error);
+      if (errors.length > 0) {
+        throw new Error('Failed to reorder some charts');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dashboard-charts'] });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: `Failed to reorder charts: ${error.message}`,
+        variant: 'destructive',
+      });
+    },
+  });
+
   return {
     charts,
     isLoading,
@@ -188,9 +217,11 @@ export const useDashboardCharts = (dashboardId?: string) => {
     updateChart: updateChart.mutate,
     deleteChart: deleteChart.mutate,
     refreshChart: refreshChart.mutate,
+    reorderCharts: reorderCharts.mutate,
     isAdding: addChart.isPending,
     isUpdating: updateChart.isPending,
     isDeleting: deleteChart.isPending,
     isRefreshing: refreshChart.isPending,
+    isReordering: reorderCharts.isPending,
   };
 };

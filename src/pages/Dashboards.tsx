@@ -7,13 +7,16 @@ import { useDashboards } from '@/hooks/useDashboards';
 import { useDashboardCharts } from '@/hooks/useDashboardCharts';
 import { CreateDashboardDialog } from '@/components/dashboard/CreateDashboardDialog';
 import { DashboardChartItem } from '@/components/dashboard/DashboardChartItem';
+import { AddChartDialog } from '@/components/dashboard/AddChartDialog';
 
 const Dashboards = () => {
   const { dashboards, isLoading, createDashboard, deleteDashboard, isCreating, isDeleting } = useDashboards();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showAddChartDialog, setShowAddChartDialog] = useState(false);
+  const [editingChart, setEditingChart] = useState<any>(null);
   const [activeDashboard, setActiveDashboard] = useState<string>('');
 
-  const { charts, isLoading: isChartsLoading } = useDashboardCharts(activeDashboard);
+  const { charts, isLoading: isChartsLoading, reorderCharts } = useDashboardCharts(activeDashboard);
 
   // Set the first dashboard as active when dashboards load
   useEffect(() => {
@@ -25,6 +28,29 @@ const Dashboards = () => {
   const handleCreateDashboard = (data: { name: string; description?: string }) => {
     createDashboard(data);
     setShowCreateDialog(false);
+  };
+
+  const handleMoveChart = (chartId: string, direction: 'up' | 'down') => {
+    if (!charts) return;
+
+    const currentIndex = charts.findIndex(c => c.id === chartId);
+    if (currentIndex === -1) return;
+
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= charts.length) return;
+
+    // Create new positions for the affected charts
+    const chartUpdates = [
+      { id: charts[currentIndex].id, position: charts[newIndex].position },
+      { id: charts[newIndex].id, position: charts[currentIndex].position },
+    ];
+
+    reorderCharts(chartUpdates);
+  };
+
+  const handleEditChartConfig = (chart: any) => {
+    setEditingChart(chart);
+    setShowAddChartDialog(true);
   };
 
   const handleDeleteDashboard = () => {
@@ -132,10 +158,21 @@ const Dashboards = () => {
               Manage and view your data dashboards
             </p>
           </div>
-          <Button onClick={() => setShowCreateDialog(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Dashboard
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setShowCreateDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Dashboard
+            </Button>
+            {currentDashboard && (
+              <Button
+                variant="outline"
+                onClick={() => setShowAddChartDialog(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Chart
+              </Button>
+            )}
+          </div>
         </div>
         
         <SecondaryTabs 
@@ -185,7 +222,7 @@ const Dashboards = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                {charts.map((chart) => (
+                {charts.map((chart, index) => (
                   <DashboardChartItem
                     key={chart.id}
                     id={chart.id}
@@ -194,6 +231,11 @@ const Dashboards = () => {
                     chartType={chart.chart_type as any}
                     config={chart.config}
                     lastRefreshed={chart.config?.lastRefreshed}
+                    onMoveUp={() => handleMoveChart(chart.id, 'up')}
+                    onMoveDown={() => handleMoveChart(chart.id, 'down')}
+                    canMoveUp={index > 0}
+                    canMoveDown={index < charts.length - 1}
+                    onEditChartConfig={() => handleEditChartConfig(chart)}
                   />
                 ))}
               </div>
@@ -207,6 +249,16 @@ const Dashboards = () => {
         onOpenChange={setShowCreateDialog}
         onSubmit={handleCreateDashboard}
         isLoading={isCreating}
+      />
+
+      <AddChartDialog
+        open={showAddChartDialog}
+        onOpenChange={(open) => {
+          setShowAddChartDialog(open);
+          if (!open) setEditingChart(null);
+        }}
+        dashboardId={activeDashboard}
+        editChart={editingChart}
       />
     </div>
   );
