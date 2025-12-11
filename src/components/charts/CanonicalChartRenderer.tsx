@@ -1,4 +1,4 @@
-import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 import { formatNumber, formatCurrency, formatPercentage } from '@/lib/formatters';
 
 // Canonical long-form data row from ai-sql-orchestrator
@@ -50,6 +50,7 @@ export interface ChartConfig {
   series: SeriesConfig[];
   showLegend: boolean;
   showTooltip: boolean;
+  showDataLabels?: boolean;
 }
 
 interface CanonicalChartRendererProps {
@@ -182,7 +183,12 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
     if (axis.format === 'percentage') {
       return `${scaledValue.toFixed(axis.decimals ?? 1)}%`;
     }
-    const formatted = formatNumber(scaledValue);
+    // For number format, use decimals setting
+    const decimals = axis.decimals ?? 2;
+    const formatted = scaledValue.toLocaleString('en-US', {
+      minimumFractionDigits: decimals > 0 ? 1 : 0,
+      maximumFractionDigits: decimals,
+    });
     return suffix ? `${formatted}${suffix}` : formatted;
   };
 
@@ -334,7 +340,18 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
                 ...(s.stackId && { stackId: s.stackId })
               };
 
-              return <Bar {...props} />;
+              return (
+                <Bar {...props}>
+                  {config.showDataLabels && (
+                    <LabelList 
+                      dataKey={dataKey} 
+                      position="top" 
+                      formatter={(value: number) => formatTooltipValue(value, dataKey)}
+                      style={{ fontSize: '12px', fill: s.color }}
+                    />
+                  )}
+                </Bar>
+              );
             })}
           
           {/* Render areas second */}
@@ -356,7 +373,17 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
                 ...(s.stackId && { stackId: s.stackId })
               };
 
-              return <Area {...props} type={s.lineType || 'linear'} />;
+              return (
+                <Area 
+                  {...props} 
+                  type={s.lineType || 'linear'}
+                  label={config.showDataLabels ? { 
+                    fill: s.color, 
+                    fontSize: 12, 
+                    formatter: (value: number) => formatTooltipValue(value, dataKey)
+                  } : undefined}
+                />
+              );
             })}
 
           {/* Render lines last for top layering */}
@@ -383,6 +410,11 @@ export function CanonicalChartRenderer({ config, data }: CanonicalChartRendererP
                   type={s.lineType || 'linear'}  // Use linear for straight lines, or monotone for curves
                   dot={{ r: 3, strokeWidth: 2, fill: s.color }}
                   activeDot={{ r: 5, strokeWidth: 0, fill: s.color }}
+                  label={config.showDataLabels ? { 
+                    fill: s.color, 
+                    fontSize: 12, 
+                    formatter: (value: number) => formatTooltipValue(value, dataKey)
+                  } : undefined}
                 />
               );
             })}

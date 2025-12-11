@@ -44,6 +44,7 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
   const [yAxis, setYAxis] = useState('');
   const [showLegend, setShowLegend] = useState(true);
   const [showTooltip, setShowTooltip] = useState(true);
+  const [showDataLabels, setShowDataLabels] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRefreshingPreview, setIsRefreshingPreview] = useState(false);
@@ -91,6 +92,7 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
     }>,
     showLegend: true,
     showTooltip: true,
+    showDataLabels: false,
   });
 
   const { addChart, updateChart, isAdding, isUpdating } = useDashboardCharts();
@@ -165,6 +167,7 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
             })) : [],
             showLegend: editChart.config.showLegend ?? true,
             showTooltip: editChart.config.showTooltip ?? true,
+            showDataLabels: editChart.config.showDataLabels ?? false,
           });
         }
       } else {
@@ -210,6 +213,7 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
           series: [],
           showLegend: true,
           showTooltip: true,
+          showDataLabels: false,
         });
       }
     }
@@ -407,6 +411,7 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
         series: enhancedSeries,
         showLegend: generatedConfig.showLegend ?? true,
         showTooltip: generatedConfig.showTooltip ?? true,
+        showDataLabels: generatedConfig.showDataLabels ?? false,
       });
 
       // Update basic form fields
@@ -501,6 +506,7 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
           title: enhancedConfig.title || chartTitle,
           showLegend: enhancedConfig.showLegend,
           showTooltip: enhancedConfig.showTooltip,
+          showDataLabels: enhancedConfig.showDataLabels,
           lastRefreshed: new Date().toISOString(),
           lastResult: queryResult,
 
@@ -594,6 +600,7 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
       title: enhancedConfig.title || chartTitle,
       showLegend: enhancedConfig.showLegend,
       showTooltip: enhancedConfig.showTooltip,
+      showDataLabels: enhancedConfig.showDataLabels,
       lastRefreshed: new Date().toISOString(),
       lastResult: queryResult,
 
@@ -1088,6 +1095,15 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
                       onChange={(e) => updateEnhancedConfig({ showTooltip: e.target.checked })}
                     />
                     <Label htmlFor="showTooltip">Show Tooltip</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="showDataLabels"
+                      checked={enhancedConfig.showDataLabels}
+                      onChange={(e) => updateEnhancedConfig({ showDataLabels: e.target.checked })}
+                    />
+                    <Label htmlFor="showDataLabels">Show Data Labels</Label>
                   </div>
                 </CardContent>
               </Card>
