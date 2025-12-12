@@ -5,7 +5,7 @@ import { SQLViewer } from '@/components/query-results/SQLViewer';
 import { ChartRenderer } from '@/components/charts/ChartRenderer';
 import { CanonicalChartRenderer, ChartConfig, CanonicalRow } from '@/components/charts/CanonicalChartRenderer';
 import { CanonicalDataTable } from '@/components/query-results/CanonicalDataTable';
-import { RefreshCw, Edit, Trash2, Clock, ChevronDown, ChevronUp, Settings, BarChart3, Table } from 'lucide-react';
+import { RefreshCw, Edit, Trash2, Clock, ChevronDown, ChevronUp, Settings, BarChart3, Table, Copy } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useDashboardCharts } from '@/hooks/useDashboardCharts';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -24,6 +24,7 @@ interface DashboardChartItemProps {
   canMoveUp?: boolean;
   canMoveDown?: boolean;
   onEditChartConfig?: () => void;
+  onDuplicateChart?: () => void;
 }
 
 export const DashboardChartItem = ({
@@ -38,6 +39,7 @@ export const DashboardChartItem = ({
   canMoveUp = false,
   canMoveDown = false,
   onEditChartConfig,
+  onDuplicateChart,
 }: DashboardChartItemProps) => {
   const [viewMode, setViewMode] = useState<'chart' | 'table'>('chart'); // Default to chart view
   const [isEditing, setIsEditing] = useState(false);
@@ -219,6 +221,16 @@ export const DashboardChartItem = ({
                   title="Edit chart configuration (SQL, type, axes, etc.)"
                 >
                   <Settings className="h-4 w-4" />
+                </Button>
+              )}
+              {onDuplicateChart && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onDuplicateChart}
+                  title="Duplicate chart"
+                >
+                  <Copy className="h-4 w-4" />
                 </Button>
               )}
               <Button

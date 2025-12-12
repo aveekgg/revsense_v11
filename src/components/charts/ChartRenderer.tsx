@@ -27,6 +27,8 @@ interface ChartRendererProps {
       max?: number;
       scale?: string;
       sciExponent?: number;
+      format?: 'currency' | 'number' | 'percentage';
+      decimals?: number;
     }>;
     format?: {
       type?: 'currency' | 'percentage' | 'number';
@@ -113,13 +115,36 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
   };
 
   // Smart format values for charts based on field names
-  const formatChartValue = (value: any, fieldName?: string, axisConfig?: { scale?: string; sciExponent?: number }) => {
+  const formatChartValue = (value: any, fieldName?: string, axisConfig?: { scale?: string; sciExponent?: number; format?: string; decimals?: number }) => {
     if (value === null || value === undefined) return value;
     
     // Apply scaling if axis config is provided
     let scaledValue = value;
     if (axisConfig?.scale && axisConfig.scale !== 'auto') {
       scaledValue = scaleValue(value, axisConfig.scale, axisConfig.sciExponent);
+    }
+    
+    // If we have axis config with format/decimals, use axis formatting over smart formatters
+    if (axisConfig?.format) {
+      const num = Number(scaledValue);
+      if (isNaN(num)) return value;
+      
+      if (axisConfig.format === 'currency') {
+        const formatted = formatCurrency(num);
+        return axisConfig?.scale === 'sci_custom' ? formatted : (getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent) ? `${formatted}${getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent)}` : formatted);
+      }
+      if (axisConfig.format === 'percentage') {
+        const decimals = axisConfig?.decimals ?? 1;
+        return `${num.toFixed(decimals)}%`;
+      }
+      if (axisConfig.format === 'number') {
+        const decimals = axisConfig?.decimals ?? 2;
+        const formatted = num.toLocaleString('en-US', {
+          minimumFractionDigits: decimals > 0 ? 1 : 0,
+          maximumFractionDigits: decimals,
+        });
+        return axisConfig?.scale === 'sci_custom' ? formatted : (getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent) ? `${formatted}${getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent)}` : formatted);
+      }
     }
     
     // Use field name from context if available, otherwise use format config
@@ -141,23 +166,16 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
       return formatNumber(scaledValue, fieldName);
     }
     
-    // Fallback to config-based formatting
+    // Fallback to axis-based formatting
     const num = Number(scaledValue);
     if (isNaN(num)) return value;
     
-    if (format?.type === 'currency') {
-      const formatted = formatCurrency(value);
-      return axisConfig?.scale === 'sci_custom' ? formatted : (getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent) ? `${formatted}${getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent)}` : formatted);
-    }
-    if (format?.type === 'percentage') {
-      return formatPercentage(value);
-    }
-    if (format?.type === 'number') {
-      const formatted = formatNumber(value);
-      return axisConfig?.scale === 'sci_custom' ? formatted : (getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent) ? `${formatted}${getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent)}` : formatted);
-    }
-    
-    const formatted = formatNumber(value);
+    // Default number formatting
+    const decimals = axisConfig?.decimals ?? 2;
+    const formatted = num.toLocaleString('en-US', {
+      minimumFractionDigits: decimals > 0 ? 1 : 0,
+      maximumFractionDigits: decimals,
+    });
     return axisConfig?.scale === 'sci_custom' ? formatted : (getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent) ? `${formatted}${getScaleSuffix(axisConfig?.scale, axisConfig?.sciExponent)}` : formatted);
   };
 

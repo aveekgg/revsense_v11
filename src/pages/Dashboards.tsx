@@ -5,15 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Plus, LayoutDashboard, Trash2, Settings } from 'lucide-react';
 import { useDashboards } from '@/hooks/useDashboards';
 import { useDashboardCharts } from '@/hooks/useDashboardCharts';
-import { CreateDashboardDialog } from '@/components/dashboard/CreateDashboardDialog';
+import { CreateDashboardDialog, EditDashboardDialog } from '@/components/dashboard/CreateDashboardDialog';
 import { DashboardChartItem } from '@/components/dashboard/DashboardChartItem';
 import { AddChartDialog } from '@/components/dashboard/AddChartDialog';
+import { DuplicateChartDialog } from '@/components/dashboard/DuplicateChartDialog';
 
 const Dashboards = () => {
-  const { dashboards, isLoading, createDashboard, deleteDashboard, isCreating, isDeleting } = useDashboards();
+  const { dashboards, isLoading, createDashboard, updateDashboard, deleteDashboard, reorderDashboards, isCreating, isUpdating, isDeleting, isReordering } = useDashboards();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [showAddChartDialog, setShowAddChartDialog] = useState(false);
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [editingChart, setEditingChart] = useState<any>(null);
+  const [duplicatingChart, setDuplicatingChart] = useState<{ id: string; title: string } | null>(null);
   const [activeDashboard, setActiveDashboard] = useState<string>('');
 
   const { charts, isLoading: isChartsLoading, reorderCharts } = useDashboardCharts(activeDashboard);
@@ -53,6 +57,11 @@ const Dashboards = () => {
     setShowAddChartDialog(true);
   };
 
+  const handleDuplicateChart = (chart: { id: string; title: string }) => {
+    setDuplicatingChart(chart);
+    setShowDuplicateDialog(true);
+  };
+
   const handleDeleteDashboard = () => {
     if (!currentDashboard) return;
     
@@ -73,6 +82,31 @@ const Dashboards = () => {
         setActiveDashboard('');
       }
     }
+  };
+
+  const handleEditDashboard = (data: { name: string; description?: string }) => {
+    if (currentDashboard) {
+      updateDashboard({ id: currentDashboard.id, ...data });
+      setShowEditDialog(false);
+    }
+  };
+
+  const handleMoveDashboard = (direction: 'next' | 'previous') => {
+    if (!currentDashboard || !dashboards) return;
+
+    const currentIndex = dashboards.findIndex(d => d.id === currentDashboard.id);
+    if (currentIndex === -1) return;
+
+    const newIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+    if (newIndex < 0 || newIndex >= dashboards.length) return;
+
+    // Create new positions for the affected dashboards
+    const dashboardUpdates = [
+      { id: dashboards[currentIndex].id, position: newIndex },
+      { id: dashboards[newIndex].id, position: currentIndex },
+    ];
+
+    reorderDashboards(dashboardUpdates);
   };
 
   // If no dashboards exist, show empty state without tabs
@@ -144,6 +178,7 @@ const Dashboards = () => {
   // Create tabs array with dashboard names plus a create button
   const tabNames = dashboards?.map(d => d.name) || [];
   const currentDashboard = dashboards?.find(d => d.id === activeDashboard);
+  const currentDashboardIndex = dashboards?.findIndex(d => d.id === activeDashboard) ?? 0;
 
   return (
     <div className="flex flex-col h-full">
@@ -201,6 +236,15 @@ const Dashboards = () => {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={() => setShowEditDialog(true)}
+                  disabled={isUpdating}
+                >
+                  <Settings className="h-4 w-4 mr-1" />
+                  {isUpdating ? 'Updating...' : 'Edit Dashboard'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleDeleteDashboard}
                   disabled={isDeleting}
                   className="text-destructive hover:text-destructive"
@@ -236,6 +280,7 @@ const Dashboards = () => {
                     canMoveUp={index > 0}
                     canMoveDown={index < charts.length - 1}
                     onEditChartConfig={() => handleEditChartConfig(chart)}
+                    onDuplicateChart={() => handleDuplicateChart({ id: chart.id, title: chart.title })}
                   />
                 ))}
               </div>
@@ -251,6 +296,19 @@ const Dashboards = () => {
         isLoading={isCreating}
       />
 
+      <EditDashboardDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onSubmit={handleEditDashboard}
+        isLoading={isUpdating}
+        initialData={currentDashboard ? { name: currentDashboard.name, description: currentDashboard.description } : undefined}
+        dashboardIndex={currentDashboardIndex}
+        totalDashboards={dashboards?.length ?? 1}
+        onMoveNext={() => handleMoveDashboard('next')}
+        onMovePrevious={() => handleMoveDashboard('previous')}
+        isReordering={isReordering}
+      />
+
       <AddChartDialog
         open={showAddChartDialog}
         onOpenChange={(open) => {
@@ -259,6 +317,14 @@ const Dashboards = () => {
         }}
         dashboardId={activeDashboard}
         editChart={editingChart}
+      />
+
+      <DuplicateChartDialog
+        open={showDuplicateDialog}
+        onOpenChange={setShowDuplicateDialog}
+        chartId={duplicatingChart?.id || ''}
+        currentDashboardId={activeDashboard}
+        currentChartTitle={duplicatingChart?.title || ''}
       />
     </div>
   );
