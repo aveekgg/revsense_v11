@@ -9,6 +9,9 @@ interface SeriesConfig {
   name?: string;
   color?: string;
   stackId?: string;
+  strokeDasharray?: string;  // For dashed lines (e.g., "5 5")
+  showDataLabels?: boolean;  // Per-series data labels toggle
+  labelPosition?: 'top' | 'center' | 'bottom';  // Position of data labels
 }
 
 interface ChartRendererProps {
@@ -23,6 +26,7 @@ interface ChartRendererProps {
     series?: SeriesConfig[];
     yAxes?: Array<{
       id: 'left' | 'right';
+      label?: string;
       min?: number;
       max?: number;
       scale?: string;
@@ -34,7 +38,6 @@ interface ChartRendererProps {
       type?: 'currency' | 'percentage' | 'number';
       decimals?: number;
     };
-    showDataLabels?: boolean;
     showOriginalValues?: boolean;
     showLegend?: boolean;
     showTooltip?: boolean;
@@ -115,7 +118,7 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
   };
 
   // Smart format values for charts based on field names
-  const formatChartValue = (value: any, fieldName?: string, axisConfig?: { scale?: string; sciExponent?: number; format?: string; decimals?: number }) => {
+  const formatChartValue = (value: any, fieldName?: string, axisConfig?: { scale?: string; sciExponent?: number; format?: string; decimals?: number }, currency?: string) => {
     if (value === null || value === undefined) return value;
     
     // Apply scaling if axis config is provided
@@ -160,7 +163,7 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
       if (lowerName.includes('revenue') || lowerName.includes('amount') || 
           lowerName.includes('price') || lowerName.includes('cost') ||
           lowerName.includes('total') || lowerName.includes('adr')) {
-        return formatCurrency(scaledValue);
+        return formatCurrency(scaledValue, currency || 'USD');
       }
       
       return formatNumber(scaledValue, fieldName);
@@ -226,6 +229,12 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
             yAxisId="left"
             className="text-xs"
             stroke="hsl(var(--muted-foreground))"
+            label={config.yAxes?.find(axis => axis.id === 'left')?.label ? {
+              value: config.yAxes?.find(axis => axis.id === 'left')?.label,
+              angle: -90,
+              position: 'insideLeft',
+              style: { textAnchor: 'middle' }
+            } : undefined}
             tickFormatter={(value) => formatChartValue(value, undefined, config.yAxes?.find(axis => axis.id === 'left'))}
             domain={
               (() => {
@@ -248,6 +257,12 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
               orientation="right"
               className="text-xs"
               stroke="hsl(var(--muted-foreground))"
+              label={config.yAxes?.find(axis => axis.id === 'right')?.label ? {
+                value: config.yAxes?.find(axis => axis.id === 'right')?.label,
+                angle: -90,
+                position: 'insideRight',
+                style: { textAnchor: 'middle' }
+              } : undefined}
               tickFormatter={(value) => formatChartValue(value, undefined, config.yAxes?.find(axis => axis.id === 'right'))}
               domain={
                 (() => {
@@ -288,7 +303,26 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
             />
           )}
           {config?.showLegend !== false && (
-            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+            <Legend 
+              wrapperStyle={{ paddingTop: '20px' }}
+              formatter={(value) => {
+                const series = validSeries.find(s => s.name === value || s.dataKey === value);
+                if (series) {
+                  // Check if there are multiple Y-axes configured
+                  const hasMultipleAxes = config.yAxes && config.yAxes.length > 1;
+                  
+                  if (hasMultipleAxes) {
+                    const axisConfig = config.yAxes?.find(axis => axis.id === series.yAxisId);
+                    const axisLabel = axisConfig?.id === 'right' ? ' (Right)' : axisConfig?.id === 'left' ? ' (Left)' : '';
+                    return `${series.name || series.dataKey}${axisLabel}`;
+                  } else {
+                    // Single axis - just show the series name
+                    return series.name || series.dataKey;
+                  }
+                }
+                return value;
+              }}
+            />
           )}
           {validSeries.map((s, idx) => {
             const seriesProps = {
@@ -298,17 +332,22 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
               yAxisId: s.yAxisId || 'left',
               fill: s.color || COLORS[idx % COLORS.length],
               stroke: s.color || COLORS[idx % COLORS.length],
+              ...(s.strokeDasharray && { strokeDasharray: s.strokeDasharray }),
               ...(s.stackId && { stackId: s.stackId }),
             };
 
             if (s.type === 'bar') {
               return (
                 <Bar {...seriesProps}>
-                  {config?.showDataLabels && (
+                  {(s.showDataLabels === true) && (
                     <LabelList 
                       dataKey={s.dataKey} 
-                      position={s.stackId ? "center" : "top"} 
-                      formatter={(value: any) => formatChartValue(value, s.dataKey)}
+                      position={s.labelPosition === 'center' ? "center" : s.labelPosition === 'bottom' ? "bottom" : (s.stackId ? "center" : "top")} 
+                      formatter={(value: any, entry: any) => {
+                        const currency = entry?.reporting_currency || entry?.reported_currency;
+                        const axisConfig = config.yAxes?.find(axis => axis.id === s.yAxisId);
+                        return formatChartValue(value, s.dataKey, axisConfig, currency);
+                      }}
                       style={{ 
                         fontSize: '12px', 
                         fill: s.stackId ? 'white' : s.color || COLORS[idx % COLORS.length],
@@ -324,14 +363,19 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
               return (
                 <Line 
                   {...seriesProps} 
-                  type="monotone" 
+                  type="linear" 
                   strokeWidth={2}
-                  dot={config?.showDataLabels ? false : { r: 3, strokeWidth: 2, fill: s.color || COLORS[idx % COLORS.length] }}
+                  dot={(s.showDataLabels === true) ? false : { r: 3, strokeWidth: 2, fill: s.color || COLORS[idx % COLORS.length] }}
                   activeDot={{ r: 5, strokeWidth: 0, fill: s.color || COLORS[idx % COLORS.length] }}
-                  label={config?.showDataLabels ? { 
+                  label={(s.showDataLabels === true) ? { 
                     fill: s.color || COLORS[idx % COLORS.length], 
                     fontSize: 12, 
-                    formatter: (value: any) => formatChartValue(value, s.dataKey)
+                    position: s.labelPosition === 'center' ? 'center' : s.labelPosition === 'bottom' ? 'bottom' : 'top',
+                    formatter: (value: any, entry: any) => {
+                      const currency = entry?.reporting_currency || entry?.reported_currency;
+                      const axisConfig = config.yAxes?.find(axis => axis.id === s.yAxisId);
+                      return formatChartValue(value, s.dataKey, axisConfig, currency);
+                    }
                   } : undefined}
                 />
               );
@@ -340,11 +384,19 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
               return (
                 <Area 
                   {...seriesProps} 
-                  type="monotone"
-                  label={config?.showDataLabels ? { 
+                  type="linear"
+                  strokeWidth={2}
+                  dot={(s.showDataLabels === true) ? false : { r: 3, strokeWidth: 2, fill: s.color || COLORS[idx % COLORS.length] }}
+                  activeDot={{ r: 5, strokeWidth: 0, fill: s.color || COLORS[idx % COLORS.length] }}
+                  label={(s.showDataLabels === true) ? { 
                     fill: s.color || COLORS[idx % COLORS.length], 
                     fontSize: 12, 
-                    formatter: (value: any) => formatChartValue(value, s.dataKey)
+                    position: s.labelPosition === 'center' ? 'center' : s.labelPosition === 'bottom' ? 'bottom' : 'top',
+                    formatter: (value: any, entry: any) => {
+                      const currency = entry?.reporting_currency || entry?.reported_currency;
+                      const axisConfig = config.yAxes?.find(axis => axis.id === s.yAxisId);
+                      return formatChartValue(value, s.dataKey, axisConfig, currency);
+                    }
                   } : undefined}
                 />
               );
@@ -485,7 +537,7 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
           />
           <Legend wrapperStyle={{ paddingTop: '20px' }} />
           <Line 
-            type="monotone" 
+            type="linear" 
             dataKey={yAxis || Object.keys(data[0])[1]} 
             stroke={COLORS[0]}
             strokeWidth={2}
@@ -583,7 +635,10 @@ export const ChartRenderer = ({ type, data, config = {} }: ChartRendererProps) =
               borderRadius: '6px',
               color: 'hsl(var(--popover-foreground))'
             }}
-            formatter={formatChartValue}
+            formatter={(value, name, props) => {
+              const currency = props?.payload?.reporting_currency || props?.payload?.reported_currency;
+              return [formatChartValue(value, typeof name === 'string' ? name : String(name), undefined, currency), typeof name === 'string' ? name : String(name)];
+            }}
           />
           <Legend />
         </PieChart>

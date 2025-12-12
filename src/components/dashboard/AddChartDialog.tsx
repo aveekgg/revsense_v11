@@ -96,10 +96,12 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
       stackId?: string;
       metric_name?: string;
       entity_name?: string;
+      showDataLabels?: boolean;
+      labelPosition?: 'top' | 'center' | 'bottom';
+      strokeDasharray?: string;
     }>,
     showLegend: true,
     showTooltip: true,
-    showDataLabels: false,
     showOriginalValues: false,
   });
 
@@ -175,7 +177,6 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
             })) : [],
             showLegend: editChart.config.showLegend ?? true,
             showTooltip: editChart.config.showTooltip ?? true,
-            showDataLabels: editChart.config.showDataLabels ?? false,
             showOriginalValues: editChart.config.showOriginalValues ?? false,
           });
         }
@@ -228,7 +229,6 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
           series: [],
           showLegend: true,
           showTooltip: true,
-          showDataLabels: false,
           showOriginalValues: false,
         });
       }
@@ -276,6 +276,9 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
       stackId: undefined,
       metric_name: isCanonicalData ? '' : undefined,
       entity_name: isCanonicalData ? '' : undefined,
+      showDataLabels: false,
+      labelPosition: 'top' as 'top' | 'center' | 'bottom',
+      strokeDasharray: undefined,
     };
     setEnhancedConfig(prev => ({
       ...prev,
@@ -436,7 +439,6 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
         series: enhancedSeries,
         showLegend: generatedConfig.showLegend ?? true,
         showTooltip: generatedConfig.showTooltip ?? true,
-        showDataLabels: generatedConfig.showDataLabels ?? false,
         showOriginalValues: generatedConfig.showOriginalValues ?? false,
       });
 
@@ -520,6 +522,9 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
           yAxisId: series.yAxisId,
           color: series.color,
           stackId: series.stackId, // For stacking
+          showDataLabels: series.showDataLabels,
+          labelPosition: series.labelPosition,
+          strokeDasharray: series.strokeDasharray,
           // Canonical format fields - use configured values or fall back to dataKey/label
           metric_name: series.metric_name || (isCanonicalData ? series.dataKey : series.dataKey),
           entity_name: series.entity_name || (isCanonicalData ? series.label : undefined),
@@ -532,7 +537,6 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
           title: enhancedConfig.title || chartTitle,
           showLegend: enhancedConfig.showLegend,
           showTooltip: enhancedConfig.showTooltip,
-          showDataLabels: enhancedConfig.showDataLabels,
           showOriginalValues: enhancedConfig.showOriginalValues,
           lastRefreshed: new Date().toISOString(),
           lastResult: queryResult,
@@ -618,6 +622,9 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
       yAxisId: series.yAxisId,
       color: series.color,
       stackId: series.stackId, // For stacking
+      showDataLabels: series.showDataLabels,
+      labelPosition: series.labelPosition,
+      strokeDasharray: series.strokeDasharray,
       // Canonical format fields - use configured values or fall back to dataKey/label
       metric_name: series.metric_name || (isCanonicalData ? series.dataKey : series.dataKey),
       entity_name: series.entity_name || (isCanonicalData ? series.label : undefined),
@@ -630,7 +637,6 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
       title: enhancedConfig.title || chartTitle,
       showLegend: enhancedConfig.showLegend,
       showTooltip: enhancedConfig.showTooltip,
-      showDataLabels: enhancedConfig.showDataLabels,
       showOriginalValues: enhancedConfig.showOriginalValues,
       lastRefreshed: new Date().toISOString(),
       lastResult: queryResult,
@@ -1135,6 +1141,53 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
                             />
                           </div>
                         </div>
+                        <div className="space-y-2">
+                          <label className="flex items-center space-x-2 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={series.showDataLabels ?? false}
+                              onChange={(e) => updateSeries(index, { showDataLabels: e.target.checked })}
+                            />
+                            <span>Show Data Labels</span>
+                          </label>
+                        </div>
+                        {series.showDataLabels && (
+                          <div className="space-y-2">
+                            <Label className="text-xs">Label Position</Label>
+                            <Select
+                              value={series.labelPosition || 'top'}
+                              onValueChange={(value: 'top' | 'center' | 'bottom') => updateSeries(index, { labelPosition: value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="top">Top</SelectItem>
+                                <SelectItem value="center">Center</SelectItem>
+                                <SelectItem value="bottom">Bottom</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        {series.type === 'line' && (
+                          <div className="space-y-2">
+                            <Label className="text-xs">Line Style</Label>
+                            <Select
+                              value={series.strokeDasharray || 'solid'}
+                              onValueChange={(value) => updateSeries(index, { strokeDasharray: value === 'solid' ? undefined : value })}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="solid">Solid</SelectItem>
+                                <SelectItem value="5 5">Dashed</SelectItem>
+                                <SelectItem value="10 5">Long Dash</SelectItem>
+                                <SelectItem value="2 2">Dotted</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
@@ -1164,15 +1217,6 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
                       onChange={(e) => updateEnhancedConfig({ showTooltip: e.target.checked })}
                     />
                     <Label htmlFor="showTooltip">Show Tooltip</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="showDataLabels"
-                      checked={enhancedConfig.showDataLabels}
-                      onChange={(e) => updateEnhancedConfig({ showDataLabels: e.target.checked })}
-                    />
-                    <Label htmlFor="showDataLabels">Show Data Labels</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <input
