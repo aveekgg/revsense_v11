@@ -139,9 +139,14 @@ export const useDashboardCharts = (dashboardId?: string) => {
 
   const duplicateChart = useMutation({
     mutationFn: async ({ chartId, targetDashboardId, newTitle }: { chartId: string; targetDashboardId: string; newTitle?: string }) => {
-      // Get the original chart
-      const originalChart = charts?.find(c => c.id === chartId);
-      if (!originalChart) throw new Error('Chart not found');
+      // Get the original chart directly from database (not from local state)
+      const { data: originalChart, error: fetchError } = await supabase
+        .from('dashboard_charts')
+        .select('*')
+        .eq('id', chartId)
+        .single();
+
+      if (fetchError || !originalChart) throw new Error('Chart not found');
 
       // Get the next position in the target dashboard
       const { data: existingCharts } = await supabase
