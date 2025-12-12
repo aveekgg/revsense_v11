@@ -10,6 +10,7 @@ export interface ChatEntity {
   name: string;
   type: EntityType;
   description?: string;
+  tags?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -18,11 +19,13 @@ export interface CreateEntityInput {
   name: string;
   type: EntityType;
   description?: string;
+  tags?: string[];
 }
 
 export interface UpdateEntityInput {
   name?: string;
   description?: string;
+  tags?: string[];
 }
 
 /**
@@ -74,6 +77,7 @@ export const useChatEntities = (type?: EntityType | EntityType[]) => {
           name: input.name,
           type: input.type,
           description: input.description,
+          tags: input.tags || [],
         })
         .select()
         .single();
@@ -192,7 +196,8 @@ export const useEntitySearch = (searchQuery: string, type?: EntityType | EntityT
 
       // Apply search filter if provided
       if (searchQuery && searchQuery.length > 0) {
-        query = query.ilike('name', `%${searchQuery}%`);
+        // Search in both name and tags array
+        query = query.or(`name.ilike.%${searchQuery}%,tags.cs.{${searchQuery}}`);
       }
 
       // Apply type filter if provided

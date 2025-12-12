@@ -30,7 +30,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useChatEntities, EntityType, ChatEntity } from '@/hooks/useChatEntities';
-import { Plus, Trash2, Edit2, Building2, User, Briefcase, TrendingUp } from 'lucide-react';
+import { Plus, Trash2, Edit2, Building2, User, Briefcase, TrendingUp, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -90,6 +90,7 @@ export const ChatEntitiesManager = () => {
     name: '',
     type: 'hotel' as EntityType,
     description: '',
+    tags: [] as string[],
   });
 
   const filterType = filter === 'all' ? undefined : filter;
@@ -111,6 +112,7 @@ export const ChatEntitiesManager = () => {
         name: entity.name,
         type: entity.type,
         description: entity.description || '',
+        tags: entity.tags || [],
       });
     } else {
       setEditingEntity(null);
@@ -118,6 +120,7 @@ export const ChatEntitiesManager = () => {
         name: '',
         type: 'hotel',
         description: '',
+        tags: [],
       });
     }
     setDialogOpen(true);
@@ -130,6 +133,7 @@ export const ChatEntitiesManager = () => {
       name: '',
       type: 'hotel',
       description: '',
+      tags: [],
     });
   };
 
@@ -140,6 +144,7 @@ export const ChatEntitiesManager = () => {
         input: {
           name: formData.name,
           description: formData.description || undefined,
+          tags: formData.tags,
         },
       });
     } else {
@@ -147,6 +152,7 @@ export const ChatEntitiesManager = () => {
         name: formData.name,
         type: formData.type,
         description: formData.description || undefined,
+        tags: formData.tags,
       });
     }
     handleCloseDialog();
@@ -221,6 +227,15 @@ export const ChatEntitiesManager = () => {
                           </div>
                           {entity.description && (
                             <p className="text-sm text-muted-foreground">{entity.description}</p>
+                          )}
+                          {entity.tags && entity.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {entity.tags.map((tag, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
                           )}
                           <p className="text-xs text-muted-foreground mt-2">
                             Created: {new Date(entity.created_at).toLocaleDateString()}
@@ -301,6 +316,44 @@ export const ChatEntitiesManager = () => {
                 placeholder="Optional description or notes"
                 rows={3}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tags">Tags</Label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {formData.tags.map((tag, index) => (
+                  <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                    {tag}
+                    <X
+                      className="h-3 w-3 cursor-pointer hover:text-destructive"
+                      onClick={() => {
+                        const newTags = formData.tags.filter((_, i) => i !== index);
+                        setFormData({ ...formData, tags: newTags });
+                      }}
+                    />
+                  </Badge>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Add a tag (press Enter)"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const value = e.currentTarget.value.trim();
+                      if (value && !formData.tags.includes(value)) {
+                        setFormData({
+                          ...formData,
+                          tags: [...formData.tags, value]
+                        });
+                        e.currentTarget.value = '';
+                      }
+                    }
+                  }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Tags allow this entity to be found by alternative names (e.g., "rba" for "Raaya by atmosphere")
+              </p>
             </div>
           </div>
           <DialogFooter>

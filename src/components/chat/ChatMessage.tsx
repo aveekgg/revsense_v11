@@ -7,6 +7,7 @@ import { ChartRenderer } from '@/components/charts/ChartRenderer';
 import { CanonicalChartRenderer, ChartConfig, CanonicalRow } from '@/components/charts/CanonicalChartRenderer';
 import { CanonicalDataTable } from '@/components/query-results/CanonicalDataTable';
 import { SaveToDashboardDialog } from '@/components/dashboard/SaveToDashboardDialog';
+import { useChatEntities } from '@/hooks/useChatEntities';
 import { useDashboardCharts } from '@/hooks/useDashboardCharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -51,6 +52,37 @@ export const ChatMessage = ({
   const hasTable = !!queryResult && Array.isArray(queryResult) && queryResult.length > 0;
   const canSave = !!sqlQuery && hasTable;
   const queryClient = useQueryClient();
+  
+  // Get all entities for mention processing
+  const { entities: allEntities } = useChatEntities();
+
+  // Function to process content and replace @mentions with entity names + types
+  const processContentWithMentions = (text: string) => {
+    if (!text || !allEntities) return text;
+
+    // Create a map of entity names/IDs to entities for quick lookup
+    const entityMap = new Map<string, typeof allEntities[0]>();
+    allEntities.forEach(entity => {
+      entityMap.set(entity.name.toLowerCase(), entity);
+      entityMap.set(entity.id, entity);
+      // Also add tags to the map
+      if (entity.tags) {
+        entity.tags.forEach(tag => {
+          entityMap.set(tag.toLowerCase(), entity);
+        });
+      }
+    });
+
+    // Replace @mentions
+    return text.replace(/@(\w+)/g, (match, mention) => {
+      const entity = entityMap.get(mention.toLowerCase());
+      if (entity) {
+        const typeLabel = entity.type === 'legal_entity' ? 'legal entity' : entity.type;
+        return `${entity.name} (${typeLabel})`;
+      }
+      return match; // Keep original if not found
+    });
+  };
   
   // Check if data is in canonical format
   const isCanonicalFormat = hasTable && queryResult.length > 0 && 
@@ -213,7 +245,7 @@ export const ChatMessage = ({
             </div>
           )}
           
-          <div className="whitespace-pre-wrap mb-3">{dataSummary || content}</div>
+          <div className="whitespace-pre-wrap mb-3">{processContentWithMentions(dataSummary || content)}</div>
 
           {hasTable && (
             <div className="flex gap-2 mb-3">
