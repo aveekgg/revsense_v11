@@ -9,12 +9,37 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Play, Wand2, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import { Loader2, Play, Wand2, Eye, EyeOff, RefreshCw, Plus, Trash2 } from 'lucide-react';
 import { ChartRenderer } from '@/components/charts/ChartRenderer';
 import { CanonicalChartRenderer } from '@/components/charts/CanonicalChartRenderer';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useDashboardCharts } from '@/hooks/useDashboardCharts';
+import { ChartFilter } from '@/types/dashboard';
+import ChartFilters from './ChartFilters';
+
+// Utility function to replace placeholders in SQL
+const replacePlaceholders = (sql: string, filterValues: Record<string, any>): string => {
+  let replacedSql = sql;
+  Object.entries(filterValues).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      // For IN clauses: {[hotel]} -> 'Hotel A', 'Hotel B' or NULL
+      const replacement = value.length > 0 
+        ? value.map(v => `'${v.replace(/'/g, "''")}'`).join(', ')
+        : `NULL`;
+      replacedSql = replacedSql.replace(new RegExp(`(\\{\\[${key}\\]\\}|\\{\\{${key}\\}\\})`, 'g'), replacement);
+    } else if (typeof value === 'object' && value.start && value.end) {
+      // For ranges: {[date_range]} -> BETWEEN 'start' AND 'end'
+      const replacement = `BETWEEN '${value.start.toISOString().split('T')[0]}' AND '${value.end.toISOString().split('T')[0]}'`;
+      replacedSql = replacedSql.replace(new RegExp(`(\\{\\[${key}\\]\\}|\\{\\{${key}\\}\\})`, 'g'), replacement);
+    } else {
+      // For text: {[param]} -> 'value' or NULL
+      const replacement = value ? `'${value.replace(/'/g, "''")}'` : `NULL`;
+      replacedSql = replacedSql.replace(new RegExp(`(\\{\\[${key}\\]\\}|\\{\\{${key}\\}\\})`, 'g'), replacement);
+    }
+  });
+  return replacedSql;
+};
 
 interface AddChartDialogProps {
   open: boolean;
@@ -54,7 +79,6 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
   const [showPreview, setShowPreview] = useState(false);
   const [isCanonicalData, setIsCanonicalData] = useState(false);
 
-  // Enhanced configuration state
   const [enhancedConfig, setEnhancedConfig] = useState({
     title: '',
     xAxis: {
@@ -105,6 +129,11 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
     showOriginalValues: false,
   });
 
+  // Filters state
+  const [filters, setFilters] = useState<ChartFilter[]>([]);
+  const [showFiltersTab, setShowFiltersTab] = useState(false);
+  const [filterValues, setFilterValues] = useState<Record<string, any>>({});
+
   const { addChart, updateChart, isAdding, isUpdating } = useDashboardCharts();
   const { toast } = useToast();
 
@@ -124,6 +153,18 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
         setChartConfig(editChart.config);
         setShowPreview(true);
         setActiveTab('query'); // Start with query tab when editing
+
+        // Initialize filters
+        setFilters(editChart.config?.filters || []);
+        setShowFiltersTab((editChart.config?.filters?.length || 0) > 0);
+
+        // Initialize filter values from saved filter defaults
+        const savedFilters = editChart.config?.filters || [];
+        const initialFilterValues: Record<string, any> = {};
+        savedFilters.forEach(filter => {
+          initialFilterValues[filter.placeholder] = filter.defaultValue || (filter.multiple ? [] : '');
+        });
+        setFilterValues(initialFilterValues);
 
         // Detect if data is in canonical format
         const data = editChart.config?.lastResult || [];
@@ -194,6 +235,10 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
         setShowPreview(false);
         setActiveTab('query');
 
+        // Reset filters
+        setFilters([]);
+        setShowFiltersTab(false);
+
         // Reset enhanced config
         setEnhancedConfig({
           title: '',
@@ -243,6 +288,31 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
       setIsCanonicalData(false);
     }
   }, [queryResult]);
+
+  // Initialize filter values when filters change
+  useEffect(() => {
+    const currentPlaceholders = Object.keys(filterValues);
+    const filterPlaceholders = filters.map(f => f.placeholder);
+
+    // Remove values for filters that no longer exist
+    const newValues = { ...filterValues };
+    currentPlaceholders.forEach(placeholder => {
+      if (!filterPlaceholders.includes(placeholder)) {
+        delete newValues[placeholder];
+      }
+    });
+
+    // Add defaults for new filters only if they don't already have values
+    filters.forEach(filter => {
+      if (!(filter.placeholder in newValues)) {
+        newValues[filter.placeholder] = filter.defaultValue || (filter.multiple ? [] : '');
+      }
+    });
+
+    if (JSON.stringify(newValues) !== JSON.stringify(filterValues)) {
+      setFilterValues(newValues);
+    }
+  }, [filters.map(f => f.placeholder).join(',')]); // Only depend on filter placeholders
 
   // Helper functions for enhanced config
   const updateEnhancedConfig = (updates: Partial<typeof enhancedConfig>) => {
@@ -303,6 +373,15 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
   // Get available columns from query result
   const availableColumns = queryResult.length > 0 ? Object.keys(queryResult[0]) : [];
 
+  // Filter validation helpers
+  const hasPlaceholders = /\{\[\w+\]\}/.test(sqlQuery);
+  const hasConfiguredFilters = filters.length > 0;
+  const hasValidFilterValues = Object.keys(filterValues).length > 0 && 
+    Object.values(filterValues).some(value => 
+      (Array.isArray(value) && value.length > 0) || 
+      (!Array.isArray(value) && value !== '' && value !== null && value !== undefined)
+    );
+
   const executeQuery = async () => {
     if (!(sqlQuery?.trim())) {
       toast({
@@ -313,10 +392,23 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
       return;
     }
 
+    // If there are placeholders but no configured filters, show error
+    if (hasPlaceholders && !hasConfiguredFilters) {
+      toast({
+        title: 'Filter placeholders detected',
+        description: 'Your query contains filter placeholders like {[param]}. Please configure filters in the "Filters" tab.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsExecuting(true);
     try {
+      // Apply filters to SQL
+      const filteredSql = replacePlaceholders(sqlQuery, filterValues);
+
       const { data, error } = await supabase.rpc('execute_safe_query', {
-        query_text: sqlQuery,
+        query_text: filteredSql,
       });
 
       if (error) throw error;
@@ -329,7 +421,7 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
       setQueryResult(resultArray);
       toast({
         title: 'Query executed',
-        description: `Found ${resultArray.length} rows`,
+        description: `Found ${resultArray.length} rows${hasValidFilterValues ? ' (with filters applied)' : ''}`,
       });
     } catch (error) {
       toast({
@@ -612,6 +704,20 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
       return;
     }
 
+    // Validate filter options - ensure no empty options
+    const invalidFilters = filters.filter(filter =>
+      filter.options && filter.options.some(option => !option.trim())
+    );
+
+    if (invalidFilters.length > 0) {
+      toast({
+        title: 'Invalid filter options',
+        description: `Please fill in or remove empty options in: ${invalidFilters.map(f => f.label).join(', ')}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Create compatible chart config from enhanced config
     // Convert enhanced series to format that works for both ChartRenderer and CanonicalChartRenderer
     const chartSeries = enhancedConfig.series.map((series, index) => ({
@@ -640,6 +746,12 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
       showOriginalValues: enhancedConfig.showOriginalValues,
       lastRefreshed: new Date().toISOString(),
       lastResult: queryResult,
+
+      // Filters - clean up empty options before saving
+      filters: filters.length > 0 ? filters.map(filter => ({
+        ...filter,
+        options: filter.options?.filter(option => option.trim()) || undefined
+      })).filter(filter => filter.options?.length || filter.type === 'text' || filter.type === 'range') : undefined,
 
       // X Axis configuration
       xKey: enhancedConfig.xAxis.key,
@@ -715,8 +827,9 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
 
         <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+            <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
               <TabsTrigger value="query">Query</TabsTrigger>
+              <TabsTrigger value="filters">Filters</TabsTrigger>
               <TabsTrigger value="config">Configuration & Preview</TabsTrigger>
             </TabsList>
 
@@ -733,7 +846,21 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sql">SQL Query</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sql">SQL Query</Label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="isParameterized"
+                      checked={hasPlaceholders}
+                      disabled={true}
+                      className="rounded"
+                    />
+                    <Label htmlFor="isParameterized" className="text-sm text-muted-foreground">
+                      Parameterized Query
+                    </Label>
+                  </div>
+                </div>
                 <Textarea
                   id="sql"
                   value={sqlQuery}
@@ -750,7 +877,7 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
                   className="flex items-center gap-2"
                 >
                   {isExecuting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                  Execute Query
+                  Execute Query{hasValidFilterValues ? ' (with filters)' : ''}
                 </Button>
 
                 {queryResult.length > 0 && (
@@ -759,6 +886,16 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
                   </Badge>
                 )}
               </div>
+
+              {/* Filter warning */}
+              {hasPlaceholders && hasConfiguredFilters && !hasValidFilterValues && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm text-yellow-800">
+                    <strong>⚠️ Filter Required:</strong> Your query contains filter placeholders like <code className="bg-yellow-100 px-1 rounded">{`{[hotel]}`}</code>.
+                    Go to the <strong>"Filters"</strong> tab to configure and test your filters before executing the query.
+                  </p>
+                </div>
+              )}
 
               {/* Raw Data JSON Display */}
               {queryResult.length > 0 && (
@@ -775,6 +912,322 @@ export const AddChartDialog = ({ open, onOpenChange, dashboardId, editChart }: A
                   </CardContent>
                 </Card>
               )}
+            </TabsContent>
+
+            <TabsContent value="filters" className="space-y-4">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">Chart Filters</Label>
+                  <Button
+                    onClick={() => setFilters([...filters, {
+                      type: 'select',
+                      label: '',
+                      placeholder: '',
+                      options: [],
+                      multiple: false
+                    }])}
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Filter
+                  </Button>
+                </div>
+
+                {filters.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No filters configured. Add filters to make charts dynamic.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filters.map((filter, index) => (
+                      <Card key={index}>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-sm">Filter {index + 1}</CardTitle>
+                            <Button
+                              onClick={() => setFilters(filters.filter((_, i) => i !== index))}
+                              size="sm"
+                              variant="destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Filter Type</Label>
+                              <Select
+                                value={filter.type}
+                                onValueChange={(value: ChartFilter['type']) => {
+                                  const updatedFilters = [...filters];
+                                  updatedFilters[index] = { ...filter, type: value };
+                                  setFilters(updatedFilters);
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="select">Select (Dropdown)</SelectItem>
+                                  <SelectItem value="preset_range">Preset Range</SelectItem>
+                                  <SelectItem value="range">Date Range Picker</SelectItem>
+                                  <SelectItem value="text">Text Input</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label>Label</Label>
+                              <Input
+                                value={filter.label}
+                                onChange={(e) => {
+                                  const updatedFilters = [...filters];
+                                  updatedFilters[index] = { ...filter, label: e.target.value };
+                                  setFilters(updatedFilters);
+                                }}
+                                placeholder="e.g., Select Hotels"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>SQL Placeholder</Label>
+                            <Input
+                              value={filter.placeholder}
+                              onChange={(e) => {
+                                const updatedFilters = [...filters];
+                                updatedFilters[index] = { ...filter, placeholder: e.target.value };
+                                setFilters(updatedFilters);
+                              }}
+                              placeholder="e.g., hotel"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Use {'{['}{filter.placeholder}{']}'} in your SQL WHERE clause (e.g., WHERE column IN {'{['}{filter.placeholder}{']}'} for multi-select)
+                            </p>
+                          </div>
+
+                          {(filter.type === 'select' || filter.type === 'preset_range') && (
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Label>Options</Label>
+                                <Button
+                                  type="button"
+                                  onClick={() => {
+                                    const updatedFilters = [...filters];
+                                    const currentOptions = filter.options || [];
+                                    updatedFilters[index] = {
+                                      ...filter,
+                                      options: [...currentOptions, '']
+                                    };
+                                    setFilters(updatedFilters);
+                                  }}
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 px-2 text-xs"
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Add Option
+                                </Button>
+                              </div>
+
+                              <div className="space-y-2">
+                                {filter.options && filter.options.length > 0 ? (
+                                  filter.options.map((option, optionIndex) => (
+                                    <div key={optionIndex} className="flex items-center gap-2">
+                                      <Input
+                                        value={option}
+                                        onChange={(e) => {
+                                          const updatedFilters = [...filters];
+                                          const newOptions = [...filter.options!];
+                                          newOptions[optionIndex] = e.target.value;
+                                          updatedFilters[index] = {
+                                            ...filter,
+                                            options: newOptions
+                                          };
+                                          setFilters(updatedFilters);
+                                        }}
+                                        placeholder={`Option ${optionIndex + 1}`}
+                                        className="flex-1"
+                                      />
+                                      <Button
+                                        type="button"
+                                        onClick={() => {
+                                          const updatedFilters = [...filters];
+                                          const newOptions = filter.options!.filter((_, i) => i !== optionIndex);
+                                          updatedFilters[index] = {
+                                            ...filter,
+                                            options: newOptions.length > 0 ? newOptions : undefined
+                                          };
+                                          setFilters(updatedFilters);
+                                        }}
+                                        size="sm"
+                                        variant="destructive"
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-sm text-muted-foreground italic">
+                                    No options added yet. Click "Add Option" to get started.
+                                  </p>
+                                )}
+                              </div>
+
+                              {filter.options && filter.options.length > 0 && (
+                                <p className="text-xs text-muted-foreground">
+                                  {filter.options.filter(opt => opt.trim()).length} valid options configured
+                                  {filter.options.some(opt => !opt.trim()) && (
+                                    <span className="text-orange-600 ml-1">
+                                      ({filter.options.filter(opt => !opt.trim()).length} empty)
+                                    </span>
+                                  )}
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          {filter.type === 'select' && (
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id={`multiple-${index}`}
+                                checked={filter.multiple || false}
+                                onChange={(e) => {
+                                  const updatedFilters = [...filters];
+                                  updatedFilters[index] = { ...filter, multiple: e.target.checked };
+                                  setFilters(updatedFilters);
+                                }}
+                              />
+                              <Label htmlFor={`multiple-${index}`}>Allow multiple selections</Label>
+                            </div>
+                          )}
+
+                          <div className="space-y-2">
+                            <Label>Default Value (optional)</Label>
+                            {filter.type === 'select' && (
+                              <Select
+                                value={Array.isArray(filter.defaultValue) ? filter.defaultValue.join(', ') : filter.defaultValue || ''}
+                                onValueChange={(value) => {
+                                  const updatedFilters = [...filters];
+                                  updatedFilters[index] = {
+                                    ...filter,
+                                    defaultValue: filter.multiple ? value.split(', ').filter(v => v) : value || undefined
+                                  };
+                                  setFilters(updatedFilters);
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select default value(s)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {filter.options?.filter(option => option.trim()).map(option => (
+                                    <SelectItem key={option} value={option}>{option}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+
+                            {filter.type === 'preset_range' && (
+                              <Select
+                                value={filter.defaultValue || ''}
+                                onValueChange={(value) => {
+                                  const updatedFilters = [...filters];
+                                  updatedFilters[index] = { ...filter, defaultValue: value };
+                                  setFilters(updatedFilters);
+                                }}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select default preset" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {filter.options?.filter(option => option.trim()).map(option => (
+                                    <SelectItem key={option} value={option}>{option}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+
+                            {filter.type === 'text' && (
+                              <Input
+                                value={filter.defaultValue || ''}
+                                onChange={(e) => {
+                                  const updatedFilters = [...filters];
+                                  updatedFilters[index] = { ...filter, defaultValue: e.target.value };
+                                  setFilters(updatedFilters);
+                                }}
+                                placeholder="Enter default text"
+                              />
+                            )}
+
+                            {filter.type === 'range' && (
+                              <Input
+                                value={filter.defaultValue ? `${filter.defaultValue.start} to ${filter.defaultValue.end}` : ''}
+                                onChange={(e) => {
+                                  const [start, end] = e.target.value.split(' to ');
+                                  const updatedFilters = [...filters];
+                                  updatedFilters[index] = {
+                                    ...filter,
+                                    defaultValue: start && end ? { start, end } : undefined
+                                  };
+                                  setFilters(updatedFilters);
+                                }}
+                                placeholder="YYYY-MM-DD to YYYY-MM-DD"
+                              />
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Test Filters Section */}
+                {filters.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-sm">Test Filters</CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        Set filter values below and execute query to test with filters applied
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <ChartFilters
+                        filters={filters}
+                        onFiltersChange={setFilterValues}
+                        initialValues={filterValues}
+                      />
+
+                      {/* Show filtered SQL preview */}
+                      {sqlQuery?.trim() && (
+                        <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                          <Label className="text-sm font-medium mb-2 block">SQL Query Preview</Label>
+                          <div className="text-xs font-mono bg-background p-2 rounded border max-h-32 overflow-auto">
+                            {replacePlaceholders(sqlQuery, filterValues)}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Showing SQL with current filter values applied
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="mt-4">
+                        <Button
+                          onClick={executeQuery}
+                          disabled={isExecuting || !(sqlQuery?.trim())}
+                          className="flex items-center gap-2"
+                        >
+                          {isExecuting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                          Execute Query
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             </TabsContent>
 
             <TabsContent value="config" className="h-full">

@@ -11,6 +11,31 @@ import { useDashboardCharts } from '@/hooks/useDashboardCharts';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { detectDataStructure, pivotData } from '@/lib/dataPivoting';
 import { EnhancedDataTable } from '@/components/query-results/EnhancedDataTable';
+import ChartFilters from './ChartFilters';
+import { ChartFilter } from '@/types/dashboard';
+
+// Utility function to replace placeholders in SQL
+const replacePlaceholders = (sql: string, filterValues: Record<string, any>): string => {
+  let replacedSql = sql;
+  Object.entries(filterValues).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      // For IN clauses: {[hotel]} -> 'Hotel A', 'Hotel B' or NULL
+      const replacement = value.length > 0 
+        ? value.map(v => `'${v.replace(/'/g, "''")}'`).join(', ')
+        : `NULL`;
+      replacedSql = replacedSql.replace(new RegExp(`(\\{\\[${key}\\]\\}|\\{\\{${key}\\}\\})`, 'g'), replacement);
+    } else if (typeof value === 'object' && value.start && value.end) {
+      // For ranges: {[date_range]} -> BETWEEN 'start' AND 'end'
+      const replacement = `BETWEEN '${value.start.toISOString().split('T')[0]}' AND '${value.end.toISOString().split('T')[0]}'`;
+      replacedSql = replacedSql.replace(new RegExp(`(\\{\\[${key}\\]\\}|\\{\\{${key}\\}\\})`, 'g'), replacement);
+    } else {
+      // For text: {[param]} -> 'value' or NULL
+      const replacement = value ? `'${value.replace(/'/g, "''")}'` : `NULL`;
+      replacedSql = replacedSql.replace(new RegExp(`(\\{\\[${key}\\]\\}|\\{\\{${key}\\}\\})`, 'g'), replacement);
+    }
+  });
+  return replacedSql;
+};
 
 interface DashboardChartItemProps {
   id: string;
@@ -47,6 +72,16 @@ export const DashboardChartItem = ({
   const [showSQL, setShowSQL] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [refreshedData, setRefreshedData] = useState(config?.lastResult);
+  const [filterValues, setFilterValues] = useState<Record<string, any>>(() => {
+    // Initialize with defaults from saved filters
+    const initialValues: Record<string, any> = {};
+    if (config?.filters && Array.isArray(config.filters)) {
+      config.filters.forEach(filter => {
+        initialValues[filter.placeholder] = filter.defaultValue || (filter.multiple ? [] : '');
+      });
+    }
+    return initialValues;
+  });
 
   const { refreshChart, updateChart, deleteChart, isRefreshing, isUpdating, isDeleting } = useDashboardCharts();
 
@@ -59,6 +94,9 @@ export const DashboardChartItem = ({
     'period' in displayData[0] && 
     'metric_name' in displayData[0] && 
     'entity_name' in displayData[0];
+
+  // Check if chart has filters configured
+  const hasFilters = config?.filters && Array.isArray(config.filters) && config.filters.length > 0;
 
   // Calculate column count for canonical data and set smart default (same logic as ChatMessage)
   const pivotedColumnCount = useMemo(() => {
@@ -83,15 +121,32 @@ export const DashboardChartItem = ({
   }, [isCanonicalFormat, defaultTableView]);
 
   const handleRefresh = () => {
+    const filteredSql = replacePlaceholders(sql, filterValues);
     refreshChart(
-      { id, sql_query: sql },
+      { id, sql_query: filteredSql },
       {
         onSuccess: (data) => {
-          setRefreshedData(data);
-        },
+        setRefreshedData(data);
+      },
       }
     );
   };
+
+  // Auto-refresh when filter values change (but not on initial load)
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  useEffect(() => {
+    if (!isInitialLoad && hasFilters) {
+      // Debounce the refresh to avoid too many calls
+      const timeoutId = setTimeout(() => {
+        handleRefresh();
+      }, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [JSON.stringify(filterValues)]);
+
+  useEffect(() => {
+    setIsInitialLoad(false);
+  }, []);
 
   const handleSaveTitle = () => {
     if (editedTitle.trim() && editedTitle !== initialTitle) {
@@ -252,6 +307,15 @@ export const DashboardChartItem = ({
           )}
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Filters */}
+          {config?.filters && config.filters.length > 0 && (
+            <ChartFilters
+              filters={config.filters as ChartFilter[]}
+              onFiltersChange={setFilterValues}
+              initialValues={filterValues}
+            />
+          )}
+
           {hasData ? (
             <div>
               {viewMode === 'chart' ? (
@@ -317,7 +381,7 @@ export const DashboardChartItem = ({
             </Button>
             {showSQL && (
               <div className="mt-2">
-                <SQLViewer sql={sql} />
+                <SQLViewer sql={replacePlaceholders(sql, filterValues)} />
               </div>
             )}
           </div>
