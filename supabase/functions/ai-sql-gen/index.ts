@@ -1144,7 +1144,7 @@ const authedUser = userData.user;
       if (
         row.metric_type === "percentage" &&
         typeof row.metric_value === "number" &&
-        row.metric_value > -1 && row.metric_value < 1
+        Math.abs(row.metric_value) <= 1
       ) {
         row.metric_value = row.metric_value * 100;
       }
