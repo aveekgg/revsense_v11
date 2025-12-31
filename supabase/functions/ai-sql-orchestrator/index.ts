@@ -1028,7 +1028,7 @@ serve(async (req) => {
     // Defensive: convert percentage values <=1 to 0-100
     queryResult = queryResult.map((row: any) => {
       const r = { ...row };
-      if (r.metric_type === 'percentage' && typeof r.metric_value === 'number' && r.metric_value <= 1) {
+      if (r.metric_type === 'percentage' && typeof r.metric_value === 'number' && Math.abs(r.metric_value) <= 1) {
         r.metric_value = r.metric_value * 100;
       }
       return r;
