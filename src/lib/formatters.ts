@@ -1,5 +1,20 @@
 /**
- * Format a number value for clean display
+ * Format a number v  // Handle percentages - convert from fraction (0-1) to percentage (0-100)
+  if (lowerFieldName.includes('percent') || lowerFieldName.includes('rate') || 
+      lowerFieldName.includes('_pct') ||
+      lowerFieldName.endsWith('_rate') || lowerFieldName.includes('margin')) {
+    
+    let percentValue = num;
+    // If value is between -1 and 1 (inclusive), convert to percentage
+    if (num >= -1 && num <= 1) {
+      percentValue = num * 100;
+    }
+    
+    return percentValue.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }) + '%';
+  }isplay
  * - Rounds decimals to 2 places (or 0 for counts)
  * - Adds thousand separators
  * - Handles percentages (converts 0-1 to 0-100)
@@ -28,8 +43,8 @@ export function formatNumber(value: any, fieldName?: string, fieldType?: string)
       lowerFieldName.endsWith('_rate') || lowerFieldName.includes('margin')) {
     
     let percentValue = num;
-    // If value is between 0 and 1, convert to percentage
-    if (num >= 0 && num <= 1) {
+    // If value is between -1 and 1 (inclusive), convert to percentage
+    if (Math.abs(num) <= 1) {
       percentValue = num * 100;
     }
     
@@ -88,9 +103,9 @@ export function formatPercentage(value: any): string {
   const num = Number(value);
   if (isNaN(num)) return String(value);
   
-  // If value is between 0 and 1, convert to percentage
+  // If value is between -1 and 1, convert to percentage
   let percentValue = num;
-  if (num >= 0 && num <= 1) {
+  if (Math.abs(num) <= 1) {
     percentValue = num * 100;
   }
   

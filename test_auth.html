@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Supabase Auth Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Supabase Authentication Test</h1>
+    <div id="status"></div>
+    <button onclick="checkAuth()">Check Auth Status</button>
+    <button onclick="testFunction()">Test Edge Function</button>
+    <button onclick="clearAndReload()">Clear Storage & Reload</button>
+    
+    <script>
+        const SUPABASE_URL = 'https://qgtelxfvamsitzrsoiox.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFndGVseGZ2YW1zaXR6cnNvaW94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3NjA1MjYsImV4cCI6MjA4MjMzNjUyNn0.zwTxmnOfKK6Auid_Jo54xu4dEv3FriKH36eumxlVxoA';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        async function checkAuth() {
+            const status = document.getElementById('status');
+            
+            // Check session
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            console.log('Session:', session, sessionError);
+            
+            // Check user
+            const { data: { user }, error: userError } = await supabase.auth.getUser();
+            console.log('User:', user, userError);
+            
+            status.innerHTML = `
+                <h3>Session Info:</h3>
+                <pre>${JSON.stringify(session, null, 2)}</pre>
+                <h3>User Info:</h3>
+                <pre>${JSON.stringify(user, null, 2)}</pre>
+                <h3>Errors:</h3>
+                <pre>Session Error: ${JSON.stringify(sessionError, null, 2)}</pre>
+                <pre>User Error: ${JSON.stringify(userError, null, 2)}</pre>
+            `;
+        }
+        
+        async function testFunction() {
+            const status = document.getElementById('status');
+            
+            try {
+                const { data, error } = await supabase.functions.invoke('manage-schema-table', {
+                    body: { operation: 'test', fields: [] }
+                });
+                
+                status.innerHTML = `
+                    <h3>Edge Function Response:</h3>
+                    <pre>Data: ${JSON.stringify(data, null, 2)}</pre>
+                    <pre>Error: ${JSON.stringify(error, null, 2)}</pre>
+                `;
+            } catch (err) {
+                status.innerHTML = `
+                    <h3>Edge Function Error:</h3>
+                    <pre>${err.message}</pre>
+                `;
+            }
+        }
+        
+        function clearAndReload() {
+            localStorage.clear();
+            sessionStorage.clear();
+            location.reload();
+        }
+        
+        // Auto-check on load
+        checkAuth();
+    </script>
+</body>
+</html>

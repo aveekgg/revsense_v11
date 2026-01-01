@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Supabase Auth</title>
+</head>
+<body>
+    <h1>Debug Authentication Issue</h1>
+    <button onclick="runTests()">Run All Tests</button>
+    <pre id="output"></pre>
+    
+    <script type="module">
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+        
+        const SUPABASE_URL = 'https://qgtelxfvamsitzrsoiox.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFndGVseGZ2YW1zaXR6cnNvaW94Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3NjA1MjYsImV4cCI6MjA4MjMzNjUyNn0.zwTxmnOfKK6Auid_Jo54xu4dEv3FriKH36eumxlVxoA';
+        
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        window.supabase = supabase;
+        
+        window.runTests = async function() {
+            const output = document.getElementById('output');
+            let log = '';
+            
+            function addLog(text) {
+                log += text + '\n';
+                output.textContent = log;
+                console.log(text);
+            }
+            
+            addLog('=== AUTHENTICATION DEBUG ===\n');
+            
+            // Test 1: Check session
+            addLog('1. Checking session...');
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            addLog('Session: ' + JSON.stringify(sessionData, null, 2));
+            if (sessionError) addLog('Session Error: ' + JSON.stringify(sessionError, null, 2));
+            
+            // Test 2: Check user
+            addLog('\n2. Checking user...');
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            addLog('User: ' + JSON.stringify(userData, null, 2));
+            if (userError) addLog('User Error: ' + JSON.stringify(userError, null, 2));
+            
+            // Test 3: Try to call edge function
+            addLog('\n3. Testing edge function call...');
+            try {
+                const { data, error } = await supabase.functions.invoke('manage-schema-table', {
+                    body: { 
+                        operation: 'create',
+                        schemaName: 'test',
+                        fields: [{ name: 'test', type: 'text', required: false }]
+                    }
+                });
+                addLog('Function Response: ' + JSON.stringify({ data, error }, null, 2));
+            } catch (err) {
+                addLog('Function Error: ' + err.message);
+                addLog('Stack: ' + err.stack);
+            }
+            
+            // Test 4: Check what's in localStorage
+            addLog('\n4. Checking localStorage...');
+            const keys = Object.keys(localStorage);
+            addLog('LocalStorage keys: ' + JSON.stringify(keys, null, 2));
+            keys.forEach(key => {
+                if (key.includes('supabase')) {
+                    const value = localStorage.getItem(key);
+                    try {
+                        const parsed = JSON.parse(value);
+                        addLog(`${key}: ${JSON.stringify(parsed, null, 2)}`);
+                    } catch {
+                        addLog(`${key}: ${value}`);
+                    }
+                }
+            });
+            
+            // Test 5: Manual API call
+            addLog('\n5. Testing manual API call to edge function...');
+            const session = sessionData?.session;
+            if (session) {
+                try {
+                    const response = await fetch(`${SUPABASE_URL}/functions/v1/manage-schema-table`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session.access_token}`,
+                            'apikey': SUPABASE_ANON_KEY
+                        },
+                        body: JSON.stringify({
+                            operation: 'create',
+                            schemaName: 'test',
+                            fields: [{ name: 'test', type: 'text', required: false }]
+                        })
+                    });
+                    
+                    addLog('Response status: ' + response.status);
+                    addLog('Response headers: ' + JSON.stringify([...response.headers.entries()], null, 2));
+                    
+                    const text = await response.text();
+                    addLog('Response body: ' + text);
+                    
+                    try {
+                        const json = JSON.parse(text);
+                        addLog('Parsed response: ' + JSON.stringify(json, null, 2));
+                    } catch {
+                        addLog('Could not parse as JSON');
+                    }
+                } catch (err) {
+                    addLog('Manual call error: ' + err.message);
+                }
+            } else {
+                addLog('No session available for manual call');
+            }
+        };
+        
+        // Auto-run on load
+        window.addEventListener('load', () => {
+            document.querySelector('button').click();
+        });
+    </script>
+</body>
+</html>

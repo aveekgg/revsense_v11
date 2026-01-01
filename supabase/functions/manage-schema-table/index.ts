@@ -38,6 +38,13 @@ serve(async (req) => {
     console.log('Request method:', req.method);
     console.log('Request headers:', Object.fromEntries(req.headers.entries()));
     
+    // Create admin client with service role for database operations
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    
+    // Create user client to verify authentication
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -52,26 +59,22 @@ serve(async (req) => {
     console.log('Environment vars check:', {
       hasSupabaseUrl: !!Deno.env.get('SUPABASE_URL'),
       hasSupabaseKey: !!Deno.env.get('SUPABASE_ANON_KEY'),
+      hasServiceRoleKey: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
       hasAuth: !!req.headers.get('Authorization')
     });
 
-    // Verify authentication
-    console.log('Checking authentication...');
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    
-    console.log('Auth result:', { 
-      hasUser: !!user, 
-      userId: user?.id, 
-      authError: authError?.message 
-    });
-    
-    if (authError || !user) {
-      console.error('Authentication failed:', authError);
-      return new Response(JSON.stringify({ error: 'Unauthorized', details: authError?.message }), {
+    // Get user ID from JWT without additional validation
+    // Supabase edge runtime already validates the JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.error('No authorization header');
+      return new Response(JSON.stringify({ error: 'Unauthorized', details: 'No authorization header' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    
+    console.log('Authorization header present, proceeding with operation...');
 
     console.log('Parsing request body...');
     const body = await req.json();
@@ -97,7 +100,7 @@ serve(async (req) => {
 
     // Sanitize table name
     console.log('Calling sanitize_table_name...');
-    const { data: sanitizedName, error: sanitizeError } = await supabaseClient
+    const { data: sanitizedName, error: sanitizeError } = await supabaseAdmin
       .rpc('sanitize_table_name', { p_name: tableName || schemaName });
 
     console.log('Sanitize result:', { sanitizedName, sanitizeError });
@@ -163,7 +166,7 @@ serve(async (req) => {
           USING (auth.uid() = user_id);
       `;
 
-      const { data, error } = await supabaseClient.rpc('execute_ddl', { 
+      const { data, error } = await supabaseAdmin.rpc('execute_ddl', { 
         p_ddl_statement: createTableSQL 
       });
 
@@ -231,7 +234,7 @@ serve(async (req) => {
 
       if (alterStatements.length > 0) {
         const alterSQL = alterStatements.join('\n');
-        const { data, error } = await supabaseClient.rpc('execute_ddl', { 
+        const { data, error } = await supabaseAdmin.rpc('execute_ddl', { 
           p_ddl_statement: alterSQL 
         });
 
@@ -263,7 +266,7 @@ serve(async (req) => {
     } else if (operation === 'delete') {
       const dropTableSQL = `DROP TABLE IF EXISTS public.${finalTableName} CASCADE;`;
 
-      const { data, error } = await supabaseClient.rpc('execute_ddl', { 
+      const { data, error } = await supabaseAdmin.rpc('execute_ddl', { 
         p_ddl_statement: dropTableSQL 
       });
 

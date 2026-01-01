@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Old Auth Token</title>
+</head>
+<body>
+    <h1>Clear Old Supabase Token</h1>
+    <button onclick="clearOldToken()">Clear Old Token & Reload</button>
+    <pre id="output"></pre>
+    
+    <script>
+        function clearOldToken() {
+            const output = document.getElementById('output');
+            let log = '';
+            
+            // List all keys
+            log += 'Before:\n';
+            Object.keys(localStorage).forEach(key => {
+                if (key.includes('supabase') || key.includes('sb-')) {
+                    log += `  ${key}\n`;
+                }
+            });
+            
+            // Remove old project token
+            localStorage.removeItem('sb-djskqegnpplmnyrzomri-auth-token');
+            
+            log += '\nRemoved: sb-djskqegnpplmnyrzomri-auth-token\n\n';
+            
+            // List remaining keys
+            log += 'After:\n';
+            Object.keys(localStorage).forEach(key => {
+                if (key.includes('supabase') || key.includes('sb-')) {
+                    log += `  ${key}\n`;
+                }
+            });
+            
+            output.textContent = log;
+            
+            // Reload after 2 seconds
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        }
+        
+        // Auto-clear on load
+        window.addEventListener('load', () => {
+            clearOldToken();
+        });
+    </script>
+</body>
+</html>
